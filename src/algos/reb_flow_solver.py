@@ -26,13 +26,23 @@ def solveRebFlow(env,res_path,desiredAcc,CPLEXPATH):
             file.write('edgeAttr='+mat2str(edgeAttr)+';\r\n')
             file.write('accInitTuple='+mat2str(accTuple)+';\r\n')
             file.write('accRLTuple='+mat2str(accRLTuple)+';\r\n')
+            penalty=getattr(env.cfg, 'shortage_penalty', 3.0)
+            file.write(f'shortage_penalty={penalty};\r\n')
         modfile = modPath+'minRebDistRebOnly.mod'
         my_env = os.environ.copy()
         my_env["LD_LIBRARY_PATH"] = CPLEXPATH
         out_file =  OPTPath + f'out_{t}.dat'
-        with open(out_file,'w') as output_f:
-            subprocess.check_call([CPLEXPATH+"oplrun", modfile, datafile], stdout=output_f, env=my_env)
-        output_f.close()
+        
+        try:
+            with open(out_file,'w') as output_f:
+                subprocess.check_call([CPLEXPATH+"oplrun", modfile, datafile], stdout=output_f, env=my_env)
+            output_f.close()
+        except subprocess.CalledProcessError as e:
+            print(f"⚠️ CPLEX rebalancing failed at t={t} (exit code {e.returncode})")
+            print(f"   Returning zero rebalancing (no vehicles moved)")
+            action = [0 for _ in env.edges]
+            return action
+
 
         # 3. collect results from file
         flow = defaultdict(float)

@@ -1,0 +1,25 @@
+Correlation: 0.0013668786731765325
+
+Top 10 Congested:
+0->4: 1.80x, trips=12.0
+0->7: 1.64x, trips=11.0
+3->7: 1.52x, trips=87.0
+5->7: 1.50x, trips=8.0
+4->0: 1.48x, trips=11.0
+7->5: 1.47x, trips=12.0
+4->5: 1.43x, trips=74.0
+5->0: 1.40x, trips=8.0
+5->4: 1.40x, trips=8.0
+2->0: 1.38x, trips=7.0
+
+Top 10 Frequent:
+1->5: 147.0 trips, avg=1.28x
+7->3: 128.0 trips, avg=0.99x
+4->6: 124.0 trips, avg=0.99x
+0->6: 119.0 trips, avg=0.91x
+0->3: 118.0 trips, avg=1.20x
+4->1: 110.0 trips, avg=0.91x
+6->3: 105.0 trips, avg=0.64x
+7->2: 95.0 trips, avg=1.31x
+5->1: 89.0 trips, avg=1.13x
+3->7: 87.0 trips, avg=1.52x

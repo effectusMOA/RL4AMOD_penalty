@@ -431,6 +431,9 @@ class SAC(nn.Module):
         return optimizers
     
     def learn(self, cfg, Dataset=None):
+        # Get checkpoint folder from config (created by train.py)
+        checkpoint_folder = cfg.checkpoint_folder
+        
         sim = cfg.simulator.name
         if sim == "sumo": 
             #traci.close(wait=False)
@@ -472,7 +475,7 @@ class SAC(nn.Module):
                     if self.wandb is not None:
                         self.wandb.log({"Reward": np.mean(episode_reward), "Served Demand": np.mean(episode_served_demand), "Rebalancing Cost": np.mean(episode_rebalancing_cost), "Step": step})
                 self.save_checkpoint(
-                path=f"ckpt/{cfg.model.checkpoint_path}.pth"
+                path=f"{checkpoint_folder}/checkpoint.pth"
                 )
 
                 batch = Dataset.sample_batch(self.BATCH_SIZE)
@@ -498,34 +501,50 @@ class SAC(nn.Module):
                 done = False
                 
                 while not done:
-                    action_rl = self.select_action(obs)
-                    desiredAcc = {self.env.region[i]: int(action_rl[i] * dictsum(self.env.acc, self.env.time + 1))
-                        for i in range(len(self.env.region))
-                    }
-            
-                    reb_action = solveRebFlow(
-                        self.env,
-                        self.env.cfg.directory,
-                        desiredAcc,
-                        self.cplexpath,
-                    )
+                    try:
+                        action_rl = self.select_action(obs)
+                        desiredAcc = {self.env.region[i]: int(action_rl[i] * dictsum(self.env.acc, self.env.time + 1))
+                            for i in range(len(self.env.region))
+                        }
+                
+                        reb_action = solveRebFlow(
+                            self.env,
+                            self.env.cfg.directory,
+                            desiredAcc,
+                            self.cplexpath,
+                        )
 
-                    new_obs, rew, done, info = self.env.step(reb_action=reb_action)
-                    step += 1
-                    episode_reward += rew
-                    episode_served_demand += info["profit"]
-                    episode_rebalancing_cost += info["rebalancing_cost"]
+                        new_obs, rew, done, info = self.env.step(reb_action=reb_action)
+                        step += 1
+                        episode_reward += rew
+                        episode_served_demand += info["profit"]
+                        episode_rebalancing_cost += info["rebalancing_cost"]
+                        
+                        new_obs = self.parser.parse_obs(new_obs).to(self.device)
+                        self.replay_buffer.store(obs, action_rl, cfg.model.rew_scale * rew, new_obs)
+                        
+                        obs = new_obs
+                        if i_episode > 10:
+                            batch = self.replay_buffer.sample_batch(cfg.model.batch_size)
+                            if i_episode < cfg.model.only_q_steps:
+                                self.update(data=batch, only_q=True)
+                            else:
+                                self.update(data=batch)
                     
-                    new_obs = self.parser.parse_obs(new_obs).to(self.device)
-                    self.replay_buffer.store(obs, action_rl, cfg.model.rew_scale * rew, new_obs)
-                    
-                    obs = new_obs
-                    if i_episode > 10:
-                        batch = self.replay_buffer.sample_batch(cfg.model.batch_size)
-                        if i_episode < cfg.model.only_q_steps:
-                            self.update(data=batch, only_q=True)
+                    except Exception as e:
+                        error_type = type(e).__name__
+                        if "TraCI" in str(e) or "FatalTraCI" in error_type:
+                            print(f"\n⚠️ SUMO crashed at episode {i_episode+1}, step {step}: {error_type}")
+                            print(f"   Skipping to next episode...")
+                            try:
+                                traci.close(wait=False)
+                            except:
+                                pass
+                            done = True
+                            break
                         else:
-                            self.update(data=batch)
+                            # Re-raise other errors
+                            raise
                 epochs.set_description(
                     f"Episode {i_episode+1} | Reward: {episode_reward:.2f} | ServedDemand: {episode_served_demand:.2f} | Reb. Cost: {episode_rebalancing_cost:.2f}"
                 )
@@ -533,13 +552,23 @@ class SAC(nn.Module):
                         self.wandb.log({"Reward": episode_reward, "Served Demand": episode_served_demand, "Rebalancing Cost": episode_rebalancing_cost, "Step": i_episode})
                         
                 self.save_checkpoint(
-                    path=f"ckpt/{cfg.model.checkpoint_path}.pth"
+                    path=f"{checkpoint_folder}/checkpoint.pth"
                 )
                 if episode_reward > best_reward: 
                     best_reward = episode_reward
                     self.save_checkpoint(
-                        path=f"ckpt/{cfg.model.checkpoint_path}_best.pth"
+                        path=f"{checkpoint_folder}/best.pth"
                     )
+        
+        # Print training summary
+        print("\n" + "="*80)
+        print("✅ TRAINING COMPLETED")
+        print("="*80)
+        print(f"📁 Checkpoints saved to: {checkpoint_folder}")
+        print(f"   - checkpoint.pth (latest)")
+        print(f"   - best.pth (best reward: {best_reward:.2f})")
+        print(f"   - metadata.json")
+        print("="*80 + "\n")
     
     def test(self, test_episodes, env, verbose = True):
         sim = env.cfg.name
@@ -590,31 +619,45 @@ class SAC(nn.Module):
             actions = []
             inflow = np.zeros(len(env.region))
             while not done:
-                
-                action_rl = self.select_action(obs, deterministic=True)
-                actions.append(action_rl)
-                desiredAcc = {env.region[i]: int(action_rl[i] * dictsum(env.acc, env.time + 1))
-                    for i in range(len(self.env.region))
-                }
-                reb_action = solveRebFlow(
-                    self.env,
-                    self.env.cfg.directory,
-                    desiredAcc,
-                    self.cplexpath,
-                )
-                new_obs, rew, done, info = env.step(reb_action=reb_action)
-                #calculate inflow to each node in the graph
-               
-                for k in range(len(env.edges)):
-                    i,j = env.edges[k]
-                    inflow[j] += reb_action[k]
+                try:
+                    action_rl = self.select_action(obs, deterministic=True)
+                    actions.append(action_rl)
+                    desiredAcc = {env.region[i]: int(action_rl[i] * dictsum(env.acc, env.time + 1))
+                        for i in range(len(self.env.region))
+                    }
+                    reb_action = solveRebFlow(
+                        self.env,
+                        self.env.cfg.directory,
+                        desiredAcc,
+                        self.cplexpath,
+                    )
+                    new_obs, rew, done, info = env.step(reb_action=reb_action)
+                    #calculate inflow to each node in the graph
+                   
+                    for k in range(len(env.edges)):
+                        i,j = env.edges[k]
+                        inflow[j] += reb_action[k]
 
-                if not done:
-                    obs = self.parser.parse_obs(new_obs).to(self.device)
-                
-                eps_reward += rew
-                eps_served_demand += info["profit"]
-                eps_rebalancing_cost += info["rebalancing_cost"]
+                    if not done:
+                        obs = self.parser.parse_obs(new_obs).to(self.device)
+                    
+                    eps_reward += rew
+                    eps_served_demand += info["profit"]
+                    eps_rebalancing_cost += info["rebalancing_cost"]
+                    
+                except Exception as e:
+                    error_type = type(e).__name__
+                    if "TraCI" in str(e) or "FatalTraCI" in error_type:
+                        print(f"\n⚠️ SUMO crashed in test episode {i_episode+1}: {error_type}")
+                        print(f"   Skipping this episode...")
+                        try:
+                            traci.close(wait=False)
+                        except:
+                            pass
+                        done = True
+                        break
+                    else:
+                        raise
                 #eps_rebalancing_veh += info["rebalanced_vehicles"]
 
             if verbose:

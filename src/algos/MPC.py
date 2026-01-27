@@ -213,8 +213,10 @@ class MPC:
                     _, paxreward, done, info = env.pax_step(paxAction=pax_action, CPLEXPATH=self.cplexpath)
                     _, rebreward, done, info = env.reb_step(reb_action)
                     env.sumo_steps()
+                    env.check_reb_completion()  # ← 이 줄 추가!
                     rew = paxreward + rebreward
                     if done:
+                        env.save_congestion_analysis()  # ← 이 한 줄만 추가
                         traci.simulationStep()
                         traci.close()
                 else:

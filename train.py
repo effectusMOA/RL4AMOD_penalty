@@ -4,6 +4,9 @@ import os
 import torch
 import json
 from hydra import initialize, compose
+from datetime import datetime
+from omegaconf import OmegaConf
+
 
 def setup_sumo(cfg):
     from src.envs.sim.sumo_env import Scenario, AMoD, GNNParser
@@ -176,6 +179,26 @@ def main(cfg: DictConfig):
             config=config,
         )
         model.wandb = wandb
+        # Create timestamped checkpoint folder for all models
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    checkpoint_folder = f"ckpt/{cfg.model.checkpoint_path}_t{cfg.simulator.time_start}-{cfg.simulator.duration}h_ep{cfg.model.max_episodes}_{timestamp}"
+    os.makedirs(checkpoint_folder, exist_ok=True)
+    
+    # Save metadata
+    metadata = {
+        "model": cfg.model.name,
+        "timestamp": timestamp,
+    }
+    with open(f"{checkpoint_folder}/metadata.json", "w") as f:
+        json.dump(metadata, f, indent=2)
+    
+    print(f"\n📁 Checkpoint: {checkpoint_folder}\n")
+    
+    # Add to config
+    OmegaConf.set_struct(cfg, False)
+    cfg.checkpoint_folder = checkpoint_folder
+    OmegaConf.set_struct(cfg, True)
 
     if hasattr(cfg.model, "data_path"): 
         Dataset = setup_dataset(cfg, env, device)

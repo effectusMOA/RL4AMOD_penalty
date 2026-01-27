@@ -56,7 +56,11 @@ def setup_model(cfg, env, parser, device):
     if model_name == "sac" or model_name =="cql":
         from src.algos.sac import SAC
         model= SAC(env=env, input_size=cfg.model.input_size, cfg=cfg.model, parser=parser, device=device).to(device)
-        model.load_checkpoint(path=f"ckpt/{cfg.model.checkpoint_path}_best.pth")
+        # Use pretrained_path if provided, otherwise use default
+        if hasattr(cfg.model, 'pretrained_path') and cfg.model.pretrained_path:
+            model.load_checkpoint(path=cfg.model.pretrained_path)
+        else:
+            model.load_checkpoint(path=f"ckpt/{cfg.model.checkpoint_path}_best.pth")
         return model
     elif model_name == "a2c":
         from src.algos.a2c import A2C
@@ -257,6 +261,8 @@ def main(cfg: DictConfig):
     
     print('Testing...')
     episode_reward, episode_served_demand, episode_rebalancing_cost, episode_inflows = model.test(cfg.model.test_episodes, env)
+
+    env.save_congestion_analysis()
 
     print('Mean Episode Profit ($): ', np.mean(episode_reward), 'Std Episode Reward: ', np.std(episode_reward))
     print('Mean Episode Served Demand($): ', np.mean(episode_served_demand), 'Std Episode Served Demand: ', np.std(episode_served_demand))

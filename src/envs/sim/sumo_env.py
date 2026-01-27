@@ -38,6 +38,7 @@ class AMoD:
     # initialization
     def __init__(self, scenario, cfg, beta=0.2):  # updated to take scenario and beta (cost for rebalancing) as input
         self.scenario = scenario
+        self.cfg = cfg  # Store config for later use
         self.G = scenario.G  # Road Graph: node - region, edge - connection of regions, node attr: 'accInit', edge attr: 'time'
         self.regions_sumo = scenario.regions_sumo
         self.taxi_routes = scenario.taxi_routes
@@ -91,6 +92,13 @@ class AMoD:
         # add the initialization of info here
         self.info = dict.fromkeys(['revenue', 'served_demand', 'rebalancing_cost', 'operating_cost'], 0)
         self.reward = 0
+        
+        # Congestion tracking for rebalancing analysis (disabled during training)
+        # Check if enable_congestion_tracking exists in cfg (True for testing, False for training)
+        self.enable_congestion_tracking = getattr(cfg, 'enable_congestion_tracking', False)
+        self.reb_tracking = {}  # {taxi_id: {departure_time, origin, dest, predicted_time}}
+        self.congestion_log = []  # List of congestion records
+        
         # observation: current vehicle distribution, time, future arrivals, demand
         self.obs = (self.acc, self.time, self.dacc, self.demand)
 
@@ -102,6 +110,16 @@ class AMoD:
         tstep = self.tstep
         t = self.time
         accTuple = [(n, self.acc[n][t + tstep]) for n in self.acc]
+        
+        # ✅ Safety check 1: No demand → no matching needed
+        if len(demandAttr) == 0:
+            return [0 for _ in self.edges]
+        
+        # ✅ Safety check 2: No taxis → matching impossible
+        total_taxis = sum(acc for _, acc in accTuple)
+        if total_taxis == 0:
+            return [0 for _ in self.edges]
+        
         modPath = os.getcwd().replace('\\', '/') + '/src/cplex_mod/'
         matchingPath = os.getcwd().replace('\\', '/') + '/saved_files/cplex_logs/matching/' + PATH + '/'
         if not os.path.exists(matchingPath):
@@ -121,9 +139,15 @@ class AMoD:
         else:
             my_env["LD_LIBRARY_PATH"] = CPLEXPATH
         out_file = matchingPath + 'out_{}.dat'.format(t)
-        with open(out_file, 'w') as output_f:
-            subprocess.check_call([CPLEXPATH + "oplrun", modfile, datafile], stdout=output_f, env=my_env)
-        output_f.close()
+        try:
+            with open(out_file, 'w') as output_f:
+                subprocess.check_call([CPLEXPATH + "oplrun", modfile, datafile], stdout=output_f, env=my_env)
+            output_f.close()
+        except subprocess.CalledProcessError as e:
+            print(f"⚠️ CPLEX matching failed at t={t} (exit code {e.returncode})")
+            print(f"   Demand: {len(demandAttr)}, Taxis: {total_taxis}")
+            print(f"   Skipping matching for this step")
+            return [0 for _ in self.edges]
         flow = defaultdict(float)
         with open(resfile, 'r', encoding="utf8") as file:
             for row in file:
@@ -141,7 +165,7 @@ class AMoD:
     # pax step
     def pax_step(self, paxAction=None, CPLEXPATH=None, PATH='', platime_endorm='linux'):
         tstep = self.tstep
-        self.time = int(((traci.simulation.getTime() - self.scenario.time_start * 60) // 60) - tstep)
+        # Time is now updated in step() method
         t = self.time
         self.reward = 0
         # Step info dictionary initialization
@@ -167,9 +191,15 @@ class AMoD:
             i, j = self.edges[k]
             if (i, j) not in self.demand or t not in self.demand[i, j] or self.paxAction[k] < 1e-3:
                 continue
-            # I moved the min operator above, since we want paxFlow to be consistent with paxAction
-            assert paxAction[k] < self.acc[i][t + tstep] + 1e-3
+            # Clip paxAction to available taxis
             self.paxAction[k] = min(self.acc[i][t + tstep], int(paxAction[k]))
+            
+            # ✅ Safety check: ensure we don't exceed available reservations
+            if (i, j) not in self.demand_res or t not in self.demand_res[i, j]:
+                continue
+            available_reservations = len(self.demand_res[i, j][t])
+            self.paxAction[k] = min(self.paxAction[k], available_reservations)
+            
             # SUMO taxi dispatch
             taxi_match = 0
             while taxi_match < self.paxAction[k]:
@@ -260,7 +290,7 @@ class AMoD:
         self.reward = 0  # reward is calculated from before this to the next rebalancing, we may also have two rewards, one for pax matching and one for rebalancing
         self.info['rebalanced_vehicles'] = 0
         self.info['rebalancing_cost'] = 0
-        self.info['operating_cost'] = 0
+        # self.info['operating_cost'] = 0  # Removed: preserve operating_cost from pax_step
         self.rebAction = rebAction
         # rebalancing
         reb_assign = list()
@@ -268,7 +298,7 @@ class AMoD:
             i, j = self.edges[k]
             if (i, j) not in self.G.edges or self.rebAction[k] < 1e-3:
                 continue
-            assert rebAction[k] < self.acc[i][t + tstep] + 1e-3
+            # Clip rebAction to available taxis (may be reduced after pax_step)
             # TODO: add check for actions respecting constraints? e.g. sum of all action[k] starting in "i" <= self.acc[i][t+1] (in addition to our agent action method)
             # update the number of vehicles
             self.rebAction[k] = min(self.acc[i][t + tstep], int(rebAction[k]))
@@ -291,9 +321,32 @@ class AMoD:
             reservations = traci.person.getTaxiReservations(3)
             reservation_ids = [r.id for r in reservations if 'rebalancing' in r.persons[0]]
             reservation_p = [r.persons[0] for r in reservations if 'rebalancing' in r.persons[0]]
+            
+            # Track remaining actions per edge for matching
+            remaining_actions = rebAction.copy()
+            
             for taxi_id, person_id in reversed(reb_assign):
                 res_id = reservation_ids[reservation_p.index(person_id)]
                 traci.vehicle.dispatchTaxi(taxi_id, [res_id])
+                
+                # Track rebalancing for congestion analysis (only if enabled)
+                if self.enable_congestion_tracking:
+                    # Find which edge this taxi belongs to
+                    for k in range(len(self.edges)):
+                        i, j = self.edges[k]
+                        if remaining_actions[k] > 0:  # This edge has rebalancing
+                            # Record tracking info
+                            self.reb_tracking[taxi_id] = {
+                                'departure_time': self.time,
+                                'origin': i,
+                                'dest': j,
+                                'predicted_time': self.G.edges[i, j]['time'],
+                                'person_id': person_id
+                            }
+                            remaining_actions[k] -= 1  # Decrement counter
+                            break
+
+
 
         self.obs = (self.acc, self.time, self.dacc, self.demand, self.unserved_demand)  # use self.time to index the next time step
         # Travel time update from sumo
@@ -307,18 +360,33 @@ class AMoD:
     def step(self, pax_action=None, reb_action=None):
         # transform sample from Dirichlet into actual vehicle counts (i.e. (x1*x2*..*xn)*num_vehicles)
         # Take action in environment
+        
+        # ✅ Update time ONCE at the beginning of each step
+        tstep = self.tstep
+        self.time = int(((traci.simulation.getTime() - self.scenario.time_start * 60) // 60) - tstep)
+        
         rew = 0
-        # Rebalancing step
+        # Matching step (prioritize current passengers)
+        obs, paxreward, done, info = self.pax_step(paxAction=pax_action, CPLEXPATH=self.cfg.cplexpath, PATH=self.cfg.directory)
+        rew += paxreward
+        # Rebalancing step (use remaining vehicles)
         obs, rebreward, done, info = self.reb_step(reb_action)
         rew += rebreward
         # Check for episode end
         if done:
+            self.save_congestion_analysis()  # Save before closing
             traci.close()
             return obs, rew, done, info
-        # Matching step
+        # Simulation step
         self.sumo_steps()
-        obs, paxreward, done, info = self.pax_step(paxAction=pax_action, CPLEXPATH=self.cfg.cplexpath, PATH=self.cfg.directory)
-        rew += paxreward
+        
+        # Check for completed rebalancing trips (congestion analysis)
+        if hasattr(self, 'check_reb_completion'):
+            self.check_reb_completion()
+        else:
+            print(f"⚠️ WARNING: check_reb_completion method not found!")
+            print(f"   AMoD class methods: {[m for m in dir(self) if not m.startswith('_')]}")
+        
         return obs, rew, done, info
 
     def sumo_steps(self):
@@ -620,6 +688,115 @@ class AMoD:
                 return False
         else:
             return traci.vehicle.isStoppedParking(taxi_id)
+    
+    def check_reb_completion(self):
+        """Check if tracked rebalancing trips have completed and log congestion"""
+        # Skip if tracking is disabled (e.g., during training)
+        if not self.enable_congestion_tracking:
+            return
+        if not self.scenario.is_meso or len(self.reb_tracking) == 0:
+            return
+        
+        try:
+            # Get current reservations (taxis not yet arrived)
+            reservations = traci.person.getTaxiReservations(0)  # ASSIGNED
+            active_persons = set()
+            for res in reservations:
+                active_persons.update(res.persons)
+            
+            # Check each tracked taxi
+            completed_taxis = []
+            for taxi_id, record in self.reb_tracking.items():
+                person_id = record['person_id']
+                
+                # If person not in active reservations, trip is complete
+                if person_id not in active_persons:
+                    # Calculate actual travel time
+                    actual_time = self.time - record['departure_time']
+                    predicted_time = record['predicted_time']
+                    congestion_ratio = actual_time / predicted_time if predicted_time > 0 else 1.0
+                    
+                    # Log congestion data
+                    self.congestion_log.append({
+                        'departure_time': record['departure_time'],
+                        'arrival_time': self.time,
+                        'edge': f"{record['origin']}->{record['dest']}",
+                        'origin': record['origin'],
+                        'dest': record['dest'],
+                        'predicted_time': predicted_time,
+                        'actual_time': actual_time,
+                        'congestion_ratio': congestion_ratio,
+                        'is_congested': congestion_ratio > 1.2
+                    })
+                    
+                    completed_taxis.append(taxi_id)
+            
+            # Remove completed trips from tracking
+            for taxi_id in completed_taxis:
+                del self.reb_tracking[taxi_id]
+                
+        except Exception as e:
+            # Silently handle TraCI errors
+            pass
+    
+    def save_congestion_analysis(self, filename=None):
+        """Save congestion analysis results to CSV"""
+        # Skip if tracking is disabled (e.g., during training)
+        if not self.enable_congestion_tracking:
+            return
+            
+        print(f"\n[DEBUG] save_congestion_analysis called")
+        print(f"[DEBUG] is_meso: {self.scenario.is_meso}")
+        print(f"[DEBUG] congestion_log length: {len(self.congestion_log)}")
+        print(f"[DEBUG] reb_tracking length: {len(self.reb_tracking)}")
+        
+        if len(self.congestion_log) == 0:
+            print("📊 No congestion data collected")
+            if not self.scenario.is_meso:
+                print("   Reason: Not using MESO simulation mode")
+            else:
+                print("   Reason: No rebalancing trips completed or tracked")
+            return
+        
+        import pandas as pd
+        import os
+        
+        if filename is None:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Extract model name from config
+            try:
+                model_name = self.cfg.model.name
+            except:
+                model_name = 'unknown'
+            filename = f'congestion_{model_name}_{timestamp}.csv'
+        
+        os.makedirs('saved_files/congestion', exist_ok=True)
+        filepath = f'saved_files/congestion/{filename}'
+        
+        df = pd.DataFrame(self.congestion_log)
+        df.to_csv(filepath, index=False)
+        
+        # Print summary statistics
+        print(f"\n📊 ========== Congestion Analysis Summary ==========")
+        print(f"Total rebalancing trips analyzed: {len(df)}")
+        if len(df) > 0:
+            congested_count = df['is_congested'].sum()
+            print(f"Congested trips (>20% delay): {congested_count} ({congested_count/len(df)*100:.1f}%)")
+            print(f"Average congestion ratio: {df['congestion_ratio'].mean():.2f}x")
+            print(f"Max congestion ratio: {df['congestion_ratio'].max():.2f}x")
+            print(f"Average delay: {(df['actual_time'] - df['predicted_time']).mean():.1f} minutes")
+            print(f"\nTop 3 most congested edges:")
+            edge_stats = df.groupby('edge').agg({
+                'congestion_ratio': 'mean',
+                'edge': 'count'
+            }).rename(columns={'edge': 'count'})
+            edge_stats = edge_stats.sort_values('congestion_ratio', ascending=False).head(3)
+            for edge, row in edge_stats.iterrows():
+                print(f"  {edge}: {row['congestion_ratio']:.2f}x avg (n={int(row['count'])})")
+        print(f"Results saved to: {filepath}")
+        print(f"===================================================\n")
+
 
 
 class Scenario:
@@ -776,6 +953,8 @@ class Scenario:
         # Edges linked to removed nodes filtered
         edges = [edge for edge in edges if edge.getFromNode() in nodes and edge.getToNode() in nodes]
         return nodes, edges
+
+
 
     def set_taxi_init_xml(self):
         """
@@ -979,6 +1158,10 @@ class Scenario:
 
 
 
+
+
+
+
 class GNNParser:
     """
     Parser converting raw environment observations to agent inputs (s_t).
@@ -1033,3 +1216,5 @@ class GNNParser:
         demand_max = max([max([demand[key][t] for key in demand]) for t in time])
         price_max = max([max([price[key][t] for key in price]) for t in time])
         return 2/acc_tot, 1/(1.2 * demand_max * price_max)
+
+

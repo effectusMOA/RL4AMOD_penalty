@@ -1,0 +1,23 @@
+======================================================================
+Test Results Summary
+======================================================================
+Test Episodes: 1
+Checkpoint: 20251129_sac_gnn
+
+Reward:
+  Average: 32213.89
+  Std Dev: 0.00
+  Min: 32213.89
+  Max: 32213.89
+
+Served Demand:
+  Average: 51625.89
+  Std Dev: 0.00
+
+Rebalancing Cost:
+  Average: 19412.00
+  Std Dev: 0.00
+
+Cost/Demand Ratio:
+  Average: 0.3760
+======================================================================
