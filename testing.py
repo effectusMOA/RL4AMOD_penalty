@@ -260,16 +260,53 @@ def main(cfg: DictConfig):
     model = setup_model(cfg, env, parser, device)
     
     print('Testing...')
-    episode_reward, episode_served_demand, episode_rebalancing_cost, episode_inflows = model.test(cfg.model.test_episodes, env)
+    episode_reward, episode_served_demand, episode_rebalancing_cost, episode_inflows, episode_od_flows = model.test(cfg.model.test_episodes, env)
 
-    env.save_congestion_analysis()
+    # Congestion analysis (only for SUMO)
+    try:
+        env.save_congestion_analysis()
+    except AttributeError:
+        pass  # Method not available in macro environment
 
     print('Mean Episode Profit ($): ', np.mean(episode_reward), 'Std Episode Reward: ', np.std(episode_reward))
     print('Mean Episode Served Demand($): ', np.mean(episode_served_demand), 'Std Episode Served Demand: ', np.std(episode_served_demand))
     print('Mean Episode Rebalancing Cost($): ', np.mean(episode_rebalancing_cost), 'Std Episode Rebalancing Cost: ', np.std(episode_rebalancing_cost))
 
+    # OD Flow 저장 (rebalancing 시각화용)
+    if episode_od_flows:
+        aggregated_od_flows = {}
+        for od_flow in episode_od_flows:
+            for (o, d), count in od_flow.items():
+                key = f"{o}_{d}"
+                aggregated_od_flows[key] = aggregated_od_flows.get(key, 0) + count
+        
+        # 에피소드 평균
+        for key in aggregated_od_flows:
+            aggregated_od_flows[key] /= len(episode_od_flows)
+        
+        # 저장 경로
+        checkpoint_name = cfg.model.get('checkpoint_path', cfg.model.get('pretrained_path', 'unknown'))
+        if hasattr(checkpoint_name, '__str__'):
+            checkpoint_name = str(checkpoint_name).replace('/', '_').replace('\\', '_')
+        
+        os.makedirs('saved_files', exist_ok=True)
+        od_flow_path = f'saved_files/{checkpoint_name}_od_flows.json'
+        
+        results = {
+            "checkpoint": str(checkpoint_name),
+            "mean_reward": float(np.mean(episode_reward)),
+            "mean_served_demand": float(np.mean(episode_served_demand)),
+            "mean_rebalancing_cost": float(np.mean(episode_rebalancing_cost)),
+            "total_rebalancing_vehicles": sum(aggregated_od_flows.values()),
+            "od_flows": aggregated_od_flows
+        }
+        
+        with open(od_flow_path, 'w') as f:
+            json.dump(results, f, indent=2)
+        print(f'OD Flow 저장됨: {od_flow_path}')
+        print(f'Total Rebalancing Vehicles (avg/ep): {results["total_rebalancing_vehicles"]:.1f}')
+
     ##TODO: ADD VISUALIZATION
 
 if __name__ == "__main__":
     main()
-    

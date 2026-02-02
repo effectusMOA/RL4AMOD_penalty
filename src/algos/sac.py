@@ -361,6 +361,10 @@ class SAC(nn.Module):
 
             if self.wandb is not None:
                 self.wandb.log({"Policy Loss": loss_pi.item()})
+            
+            return loss_q1.item(), loss_pi.item()
+        
+        return loss_q1.item(), None
 
     def _get_action_and_values(self, data, num_actions, batch_size, action_dim):
       
@@ -487,6 +491,14 @@ class SAC(nn.Module):
             best_reward = -np.inf  # set best reward
             self.train()  # set model in train mode
 
+            # Initialize CSV logging
+            import csv
+            log_file = f"{checkpoint_folder}/training_log.csv"
+            with open(log_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['episode', 'reward', 'served_demand', 'rebalancing_cost', 
+                                'total_reb_flow', 'critic_loss', 'actor_loss'])
+
             for i_episode in epochs:
                 if sim =='sumo':
                     traci.start(sumo_cmd)
@@ -498,6 +510,9 @@ class SAC(nn.Module):
                 episode_served_demand = 0
                 episode_rebalancing_cost = 0
                 episode_served_demand += rew
+                episode_total_reb_flow = 0  # Track total rebalancing flow
+                episode_critic_loss = []
+                episode_actor_loss = []
                 done = False
                 
                 while not done:
@@ -519,6 +534,7 @@ class SAC(nn.Module):
                         episode_reward += rew
                         episode_served_demand += info["profit"]
                         episode_rebalancing_cost += info["rebalancing_cost"]
+                        episode_total_reb_flow += sum(reb_action)  # Track total rebalancing flow
                         
                         new_obs = self.parser.parse_obs(new_obs).to(self.device)
                         self.replay_buffer.store(obs, action_rl, cfg.model.rew_scale * rew, new_obs)
@@ -527,14 +543,17 @@ class SAC(nn.Module):
                         if i_episode > 10:
                             batch = self.replay_buffer.sample_batch(cfg.model.batch_size)
                             if i_episode < cfg.model.only_q_steps:
-                                self.update(data=batch, only_q=True)
+                                critic_loss, actor_loss = self.update(data=batch, only_q=True)
                             else:
-                                self.update(data=batch)
+                                critic_loss, actor_loss = self.update(data=batch)
+                            episode_critic_loss.append(critic_loss)
+                            if actor_loss is not None:
+                                episode_actor_loss.append(actor_loss)
                     
                     except Exception as e:
                         error_type = type(e).__name__
                         if "TraCI" in str(e) or "FatalTraCI" in error_type:
-                            print(f"\n⚠️ SUMO crashed at episode {i_episode+1}, step {step}: {error_type}")
+                            print(f"\n[WARNING] SUMO crashed at episode {i_episode+1}, step {step}: {error_type}")
                             print(f"   Skipping to next episode...")
                             try:
                                 traci.close(wait=False)
@@ -548,12 +567,27 @@ class SAC(nn.Module):
                 epochs.set_description(
                     f"Episode {i_episode+1} | Reward: {episode_reward:.2f} | ServedDemand: {episode_served_demand:.2f} | Reb. Cost: {episode_rebalancing_cost:.2f}"
                 )
+                
+                # Log to CSV
+                avg_critic_loss = np.mean(episode_critic_loss) if episode_critic_loss else 0
+                avg_actor_loss = np.mean(episode_actor_loss) if episode_actor_loss else 0
+                with open(log_file, 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([i_episode, episode_reward, episode_served_demand, 
+                                    episode_rebalancing_cost, episode_total_reb_flow,
+                                    avg_critic_loss, avg_actor_loss])
+                
                 if self.wandb is not None:
                         self.wandb.log({"Reward": episode_reward, "Served Demand": episode_served_demand, "Rebalancing Cost": episode_rebalancing_cost, "Step": i_episode})
                         
                 self.save_checkpoint(
                     path=f"{checkpoint_folder}/checkpoint.pth"
                 )
+                
+                # Save periodic checkpoint every 100 episodes
+                if (i_episode + 1) % 100 == 0:
+                    self.save_checkpoint(path=f"{checkpoint_folder}/checkpoint_ep{i_episode+1}.pth")
+                
                 if episode_reward > best_reward: 
                     best_reward = episode_reward
                     self.save_checkpoint(
@@ -602,6 +636,7 @@ class SAC(nn.Module):
         seeds = list(range(env.cfg.seed, env.cfg.seed + test_episodes+1))
         episode_actions = []
         episode_inflows = []
+        episode_od_flows = []  # OD pair별 flow 추가
         for i_episode in epochs:
             eps_reward = 0
             eps_served_demand = 0
@@ -618,6 +653,7 @@ class SAC(nn.Module):
             eps_served_demand += rew
             actions = []
             inflow = np.zeros(len(env.region))
+            od_flow = {}  # {(origin, dest): count}
             while not done:
                 try:
                     action_rl = self.select_action(obs, deterministic=True)
@@ -637,6 +673,10 @@ class SAC(nn.Module):
                     for k in range(len(env.edges)):
                         i,j = env.edges[k]
                         inflow[j] += reb_action[k]
+                        # OD pair별 flow 기록
+                        if reb_action[k] > 0:
+                            od_key = (i, j)
+                            od_flow[od_key] = od_flow.get(od_key, 0) + reb_action[k]
 
                     if not done:
                         obs = self.parser.parse_obs(new_obs).to(self.device)
@@ -669,6 +709,7 @@ class SAC(nn.Module):
             episode_rebalancing_cost.append(eps_rebalancing_cost)
             episode_actions.append(np.mean(actions, axis=0))
             episode_inflows.append(inflow)
+            episode_od_flows.append(od_flow)  # OD flow 추가
             #episode_rebalanced_vehicles.append(eps_rebalancing_veh)
         
 
@@ -677,6 +718,7 @@ class SAC(nn.Module):
             episode_served_demand,
             episode_rebalancing_cost,
             episode_inflows,
+            episode_od_flows,  # OD flow 추가 반환
         )
 
     def save_checkpoint(self, path="ckpt.pth"):
