@@ -61,7 +61,7 @@ $$\min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \rig
 ## 4. Slack ($s_i$)과 페널티 ($\lambda$)의 이해
 
 ### Slack ($s_i$)이란 무엇인가?
-Slack 변수 $s_i$는 지역 $i$에서 **충족되지 못한 차량 수요(Shortage)**를 의미합니다.
+Slack 변수 $s_i$는 지역 $i$에서 충족되지 못한 차량 수요(Shortage)를 의미합니다.
 $$s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right)$$
 - $s_i = 0$: 목표 분포가 완전히 충족됨 (Hard 제약 만족).
 - $s_i > 0$: 요청한 것보다 적은 차량이 공급됨.
