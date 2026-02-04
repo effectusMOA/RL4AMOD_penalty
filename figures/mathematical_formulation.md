@@ -134,6 +134,6 @@ $$\max \sum_{t=t_0}^{t_0+T-1} \left( \sum_{e \in E_{demand}} y_{e,t} \cdot p_e -
 1.  **차량 흐름 보존 (Flow Dynamics)**:
    $$acc_{i, t+1} = acc_{i, t} - \text{Outflow}_{i,t} + \text{Inflow}_{i,t}$$
 2.  **용량 제약 (Capacity)**:
-   $$\sum \text{Outflow}_{i,t} \le acc_{i, t}$$
-3.  **수요 제약 (Demand)**:
+   $$\sum \text{Outflow}{i,t} \le acc{i, t}$$
+4.  **수요 제약 (Demand)**:
    $$y_{e,t} \le \text{Demand}_{e,t}$$
