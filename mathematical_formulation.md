@@ -22,18 +22,18 @@ Hard SAC 방식은 재분배 비용과 상관없이 목표 차량 분포를 **�
 
 ### 목적 함수 (Objective Function)
 총 재분배 비용을 최소화합니다:
-$$ \min \sum_{(i,j) \in E} c_{ij} x_{ij} $$
+$$\min \sum_{(i,j) \in E} c_{ij} x_{ij}$$
 
 ### 제약 조건 (Constraints)
 1.  **유량 보존 (Flow Conservation - 엄격함)**: 각 노드의 순유입량(Net Inflow)은 부족분을 충족해야 합니다.
-    $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V $$
+   $$\sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V$$
     *해석*: 만약 노드에 차량이 더 필요하다면($v_i^d > v_i$), 순유입량은 최소한 그 부족분만큼 되어야 합니다. 이미 차량이 충분하다면 이 제약은 자연스럽게 만족됩니다.
 
 2.  **용량 제약 (Capacity Constraint)**: 노드를 떠나는 재분배 차량 수는 현재 보유한 차량 수를 초과할 수 없습니다.
-    $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
+   $$\sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V$$
 
 3.  **비음 제약 (Non-negativity)**:
-    $$ x_{ij} \ge 0 $$
+   $$x_{ij} \ge 0$$
 
 ---
 
@@ -43,26 +43,26 @@ Soft SAC 방식은 Slack 변수 $s_i$를 도입하여 엄격한 유량 보존 �
 
 ### 목적 함수 (Objective Function)
 재분배 비용과 부족분 페널티의 가중 합을 최소화합니다:
-$$ \min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \right) $$
+$$\min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \right)$$
 
 ### 제약 조건 (Constraints)
 1.  **유량 보존 (Flow Conservation - 완화됨)**:
-    $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} + s_i \ge v_i^d - v_i, \quad \forall i \in V $$
+   $$\sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} + s_i \ge v_i^d - v_i, \quad \forall i \in V$$
     *해석*: 순유입량에 부족분($s_i$)을 더한 값이 목표 부족분을 커버해야 합니다. 재분배 비용이 너무 비싸다면, 솔버는 $x_{ji}$를 늘리는 대신 $s_i$를 늘리는 선택을 할 수 있습니다.
 
 2.  **용량 제약 (Capacity Constraint)** (Hard SAC와 동일):
-    $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
+   $$\sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V$$
 
 3.  **비음 제약 (Non-negativity)**:
-    $$ x_{ij} \ge 0, \quad s_i \ge 0 $$
+   $$x_{ij} \ge 0, \quad s_i \ge 0$$
 
 ---
 
 ## 4. Slack ($s_i$)과 페널티 ($\lambda$)의 이해
 
 ### Slack ($s_i$)이란 무엇인가?
-Slack 변수 $s_i$는 지역 $i$에서 **충족되지 못한 차량 수요(Shortage)**를 의미합니다. 즉, 목표 차량 수에 도달하지 못한 부족분입니다.
-$$ s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right) $$
+Slack 변수 $s_i$는 지역 $i$에서 충족되지 못한 차량 수요(Shortage)를 의미합니다. 즉, 목표 차량 수에 도달하지 못한 부족분입니다.
+$$s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right)$$
 
 **예시 시나리오:**
 - **현재 상황 ($v_i$)**: Zone A에 택시 5대 있음.
