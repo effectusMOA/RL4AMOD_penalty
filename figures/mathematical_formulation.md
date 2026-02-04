@@ -22,18 +22,18 @@ Hard SAC 방식은 재분배 비용과 상관없이 목표 차량 분포를 **�
 
 ### 목적 함수 (Objective Function)
 총 재분배 비용을 최소화합니다:
-$$ \min \sum_{(i,j) \in E} c_{ij} x_{ij} $$
+$$\min \sum_{(i,j) \in E} c_{ij} x_{ij}$$
 
 ### 제약 조건 (Constraints)
 1.  **유량 보존 (Flow Conservation - 엄격함)**: 각 노드의 순유입량(Net Inflow)은 부족분을 충족해야 합니다.
-    $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V $$
+   $$\sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V$$
     *해석*: 만약 노드에 차량이 더 필요하다면($v_i^d > v_i$), 순유입량은 최소한 그 부족분만큼 되어야 합니다. 이미 차량이 충분하다면 이 제약은 자연스럽게 만족됩니다.
 
 2.  **용량 제약 (Capacity Constraint)**: 노드를 떠나는 재분배 차량 수는 현재 보유한 차량 수를 초과할 수 없습니다.
-    $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
+   $$\sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V$$
 
 3.  **비음 제약 (Non-negativity)**:
-    $$ x_{ij} \ge 0 $$
+   $$x_{ij} \ge 0$$
 
 ---
 
@@ -43,18 +43,18 @@ Soft SAC 방식은 Slack 변수 $s_i$를 도입하여 엄격한 유량 보존 �
 
 ### 목적 함수 (Objective Function)
 재분배 비용과 부족분 페널티의 가중 합을 최소화합니다:
-$$ \min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \right) $$
+$$\min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \right)$$
 
 ### 제약 조건 (Constraints)
 1.  **유량 보존 (Flow Conservation - 완화됨)**:
-    $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} + s_i \ge v_i^d - v_i, \quad \forall i \in V $$
+   $$\sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} + s_i \ge v_i^d - v_i, \quad \forall i \in V$$
     *해석*: 순유입량에 부족분($s_i$)을 더한 값이 목표 부족분을 커버해야 합니다. 재분배 비용이 너무 비싸다면, 솔버는 $x_{ji}$를 늘리는 대신 $s_i$를 늘리는 선택을 할 수 있습니다.
 
 2.  **용량 제약 (Capacity Constraint)** (Hard SAC와 동일):
-    $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
+   $$\sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V$$
 
 3.  **비음 제약 (Non-negativity)**:
-    $$ x_{ij} \ge 0, \quad s_i \ge 0 $$
+   $$x_{ij} \ge 0, \quad s_i \ge 0$$
 
 ---
 
@@ -62,7 +62,7 @@ $$ \min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \ri
 
 ### Slack ($s_i$)이란 무엇인가?
 Slack 변수 $s_i$는 지역 $i$에서 **충족되지 못한 차량 수요(Shortage)**를 의미합니다. 즉, 목표 차량 수에 도달하지 못한 부족분입니다.
-$$ s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right) $$
+$$s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right)$$
 
 **예시 시나리오:**
 - **현재 상황 ($v_i$)**: Zone A에 택시 5대 있음.
@@ -101,7 +101,7 @@ $$ s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right)
 
 ### 5.1. No Rebalancing
 가장 기본적인 형태로, 어떠한 재분배도 수행하지 않습니다.
-$$ x_{ij} = 0, \quad \forall (i, j) \in E $$
+$$x_{ij} = 0, \quad \forall (i, j) \in E$$
 - **목적**: 시스템의 자연스러운 차량 흐름만을 이용할 때의 하한선(Lower Bound) 성능을 측정합니다.
 
 ### 5.2. Heuristic (Equal Distribution)
@@ -111,17 +111,17 @@ $$ x_{ij} = 0, \quad \forall (i, j) \in E $$
   재분배 비용을 최소화하면서 목표 분포를 달성합니다. (Hard Constraint 적용) (This experiment used PuLP to enforce strict constraints).
   
   **목적 함수**:
-  $$ \min \sum_{(i,j) \in E} c_{ij} x_{ij} $$
+ $$\min \sum_{(i,j) \in E} c_{ij} x_{ij}$$
   
   **제약 조건**:
-  $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V $$
-  $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
+ $$\sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V$$
+ $$\sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V$$
 
 ### 5.3. MPC (Model Predictive Control)
 미래의 수요와 차량 흐름을 예측하여 유한한 시간 지평(Time Horizon, $T$) 동안의 총 이익을 최대화합니다.
 
 **목적 함수 (Objective Function)**:
-$$ \max \sum_{t=t_0}^{t_0+T-1} \left( \sum_{e \in E_{demand}} y_{e,t} \cdot p_e - \beta \left( \sum_{e \in E} x_{e,t}^{reb} \cdot \tau_e + \sum_{e \in E_{demand}} y_{e,t} \cdot \tau_{e} \right) \right) $$
+$$\max \sum_{t=t_0}^{t_0+T-1} \left( \sum_{e \in E_{demand}} y_{e,t} \cdot p_e - \beta \left( \sum_{e \in E} x_{e,t}^{reb} \cdot \tau_e + \sum_{e \in E_{demand}} y_{e,t} \cdot \tau_{e} \right) \right)$$
 
 여기서:
 - $y_{e,t}$: 시간 $t$에 간선 $e$의 승객 수요 처리량
@@ -132,8 +132,8 @@ $$ \max \sum_{t=t_0}^{t_0+T-1} \left( \sum_{e \in E_{demand}} y_{e,t} \cdot p_e 
 
 **제약 조건 (Constraints)**:
 1.  **차량 흐름 보존 (Flow Dynamics)**:
-    $$ acc_{i, t+1} = acc_{i, t} - \text{Outflow}_{i,t} + \text{Inflow}_{i,t} $$
+   $$acc_{i, t+1} = acc_{i, t} - \text{Outflow}_{i,t} + \text{Inflow}_{i,t}$$
 2.  **용량 제약 (Capacity)**:
-    $$ \sum \text{Outflow}_{i,t} \le acc_{i, t} $$
+   $$\sum \text{Outflow}_{i,t} \le acc_{i, t}$$
 3.  **수요 제약 (Demand)**:
-    $$ y_{e,t} \le \text{Demand}_{e,t} $$
+   $$y_{e,t} \le \text{Demand}_{e,t}$$
