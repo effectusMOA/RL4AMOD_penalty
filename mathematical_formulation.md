@@ -1,86 +1,86 @@
-# Rebalancing Optimization Formulation
+# Rebalancing 최적화 수식 정식화
 
-## 1. Problem Definitions
+## 1. 문제 정의 (Problem Definitions)
 
-Let the road network be represented as a graph $G = (V, E)$, where $V$ is the set of regions (nodes) and $E$ is the set of edges (road connections).
+도로 네트워크를 그래프 $G = (V, E)$로 정의합니다. 여기서 $V$는 지역(노드)의 집합, $E$는 간선(도로 연결)의 집합입니다.
 
-**Parameters:**
-- $v_i$: Current number of available vehicles in region $i$ at time $t$.
-- $v_i^d$: Desired number of vehicles in region $i$ at time $t+1$ (determined by the Policy Network).
-- $c_{ij}$: Cost of rebalancing from region $i$ to region $j$ (e.g., travel time or distance).
-- $\lambda$: Shortage penalty coefficient (Control parameter for Soft SAC).
+**파라미터 (Parameters):**
+- $v_i$: 시간 $t$에 지역 $i$에 있는 현재 가용 차량 수.
+- $v_i^d$: 시간 $t+1$에 지역 $i$에서 필요한 목표 차량 수 (Policy Network에 의해 결정됨).
+- $c_{ij}$: 지역 $i$에서 지역 $j$로 재분배(Rebalancing)하는 비용 (예: 이동 시간 또는 거리).
+- $\lambda$: 부족분 페널티 계수 (Soft SAC의 제어 파라미터).
 
-**Decision Variables:**
-- $x_{ij} \in \mathbb{Z}_{\ge 0}$: Number of vehicles rebalanced from region $i$ to region $j$.
-- $s_i \in \mathbb{R}_{\ge 0}$: Slack variable representing the shortage of vehicles in region $i$ (used only in Soft SAC).
+**결정 변수 (Decision Variables):**
+- $x_{ij} \in \mathbb{Z}_{\ge 0}$: 지역 $i$에서 지역 $j$로 재분배되는 차량의 수.
+- $s_i \in \mathbb{R}_{\ge 0}$: 지역 $i$의 차량 부족분(Shortage)을 나타내는 Slack 변수 (Soft SAC에서만 사용).
 
 ---
 
 ## 2. Hard SAC (Hard Constraint LP)
 
-The Hard SAC approach strictly enforces the requirement to meet the desired vehicle distribution, regardless of the rebalancing cost. This often leads to excessive long-distance empty trips.
+Hard SAC 방식은 재분배 비용과 상관없이 목표 차량 분포를 **반드시** 충족하도록 강제합니다. 이는 종종 과도한 장거리 공차 운행을 초래합니다.
 
-### Objective Function
-Minimize the total rebalancing cost:
+### 목적 함수 (Objective Function)
+총 재분배 비용을 최소화합니다:
 $$ \min \sum_{(i,j) \in E} c_{ij} x_{ij} $$
 
-### Constraints
-1.  **Flow Conservation (Strict)**: The net inflow of vehicles must satisfy the deficit at each node.
+### 제약 조건 (Constraints)
+1.  **유량 보존 (Flow Conservation - 엄격함)**: 각 노드의 순유입량(Net Inflow)은 부족분을 충족해야 합니다.
     $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} \ge v_i^d - v_i, \quad \forall i \in V $$
-    *Interpretation*: If a node needs more vehicles ($v_i^d > v_i$), the net inflow must be at least the deficit. If it has surplus, the constraint is trivially satisfied (since decision variables are non-negative and can be zero).
+    *해석*: 만약 노드에 차량이 더 필요하다면($v_i^d > v_i$), 순유입량은 최소한 그 부족분만큼 되어야 합니다. 이미 차량이 충분하다면 이 제약은 자연스럽게 만족됩니다.
 
-2.  **Capacity Constraint**: The number of rebalancing vehicles leaving a node cannot exceed the available vehicles.
+2.  **용량 제약 (Capacity Constraint)**: 노드를 떠나는 재분배 차량 수는 현재 보유한 차량 수를 초과할 수 없습니다.
     $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
 
-3.  **Non-negativity**:
+3.  **비음 제약 (Non-negativity)**:
     $$ x_{ij} \ge 0 $$
 
 ---
 
 ## 3. Soft SAC (Soft Constraint LP with Penalty)
 
-The Soft SAC approach relaxes the strict flow conservation constraint by introducing a slack variable $s_i$. This allows the system to deviate from the desired distribution if the cost of satisfying it is too high.
+Soft SAC 방식은 Slack 변수 $s_i$를 도입하여 엄격한 유량 보존 제약을 완화합니다. 이를 통해 비용이 너무 높을 경우 목표 분포를 완벽히 맞추지 않는 것을 허용합니다.
 
-### Objective Function
-Minimize the weighted sum of rebalancing cost and shortage penalty:
+### 목적 함수 (Objective Function)
+재분배 비용과 부족분 페널티의 가중 합을 최소화합니다:
 $$ \min \left( \sum_{(i,j) \in E} c_{ij} x_{ij} + \lambda \sum_{i \in V} s_i \right) $$
 
-### Constraints
-1.  **Flow Conservation (Relaxed with Slack)**:
+### 제약 조건 (Constraints)
+1.  **유량 보존 (Flow Conservation - 완화됨)**:
     $$ \sum_{j:(j,i) \in E} x_{ji} - \sum_{j:(i,j) \in E} x_{ij} + s_i \ge v_i^d - v_i, \quad \forall i \in V $$
-    *Interpretation*: The net inflow plus the shortage ($s_i$) must cover the deficit. If rebalancing is too expensive, the solver can choose to increase $s_i$ instead of increasing $x_{ji}$.
+    *해석*: 순유입량에 부족분($s_i$)을 더한 값이 목표 부족분을 커버해야 합니다. 재분배 비용이 너무 비싸다면, 솔버는 $x_{ji}$를 늘리는 대신 $s_i$를 늘리는 선택을 할 수 있습니다.
 
-2.  **Capacity Constraint** (Same as Hard SAC):
+2.  **용량 제약 (Capacity Constraint)** (Hard SAC와 동일):
     $$ \sum_{j:(i,j) \in E} x_{ij} \le v_i, \quad \forall i \in V $$
 
-3.  **Non-negativity**:
+3.  **비음 제약 (Non-negativity)**:
     $$ x_{ij} \ge 0, \quad s_i \ge 0 $$
 
 ---
 
-## 4. Understanding Slack ($s_i$) and Penalty ($\lambda$)
+## 4. Slack ($s_i$)과 페널티 ($\lambda$)의 이해
 
-### What is Slack ($s_i$)?
-The slack variable $s_i$ represents the **unmet demand for vehicles** (shortage) in region $i$.
-$$ s_i = \max \left( 0, (v_i^d - v_i) - (\text{Net Rebalancing Inflow}) \right) $$
-- If $s_i = 0$: The desired distribution is fully satisfied (Hard constraint met).
-- If $s_i > 0$: The region received fewer vehicles than requested.
+### Slack ($s_i$)이란 무엇인가?
+Slack 변수 $s_i$는 지역 $i$에서 **충족되지 못한 차량 수요(Shortage)**를 의미합니다.
+$$ s_i = \max \left( 0, (v_i^d - v_i) - (\text{순 재분배 유입량}) \right) $$
+- $s_i = 0$: 목표 분포가 완전히 충족됨 (Hard 제약 만족).
+- $s_i > 0$: 요청한 것보다 적은 차량이 공급됨.
 
-### Role of Penalty Coefficient ($\lambda$)
-The parameter $\lambda$ controls the trade-off between **operational efficiency** (low rebalancing cost) and **service quality** (meeting desired distribution).
+### 페널티 계수 ($\lambda$)의 역할
+파라미터 $\lambda$는 **운영 효율성** (낮은 재분배 비용)과 **서비스 품질** (목표 분포 충족) 사이의 **Trade-off**를 조절합니다.
 
--   **High $\lambda$ (e.g., $\lambda \to \infty$)**:
-    -   The penalty cost $\lambda s_i$ becomes huge.
-    -   The solver is forced to minimize $s_i$ to zero.
-    -   **Result**: Converges to **Hard SAC** behavior (maximum rebalancing to meet targets).
+-   **높은 $\lambda$ (예: $\lambda \to \infty$)**:
+    -   페널티 비용 $\lambda s_i$가 매우 커집니다.
+    -   솔버는 $s_i$를 0으로 만들기 위해 비용을 감수하고 재분배를 수행합니다.
+    -   **결과**: **Hard SAC**와 동일한 동작 (목표 충족을 위해 최대 재분배).
     
--   **Low $\lambda$ (e.g., $\lambda \approx 0$)**:
-    -   The penalty cost is negligible.
-    -   The solver prioritizes minimizing rebalancing cost ($\sum c_{ij} x_{ij}$).
-    -   It may choose not to rebalance at all ($x_{ij}=0$) and accept high shortage ($s_i > 0$).
-    -   **Result**: Minimal empty trips, but potentially poor service availability.
+-   **낮은 $\lambda$ (예: $\lambda \approx 0$)**:
+    -   페널티 비용이 무시할 수준입니다.
+    -   솔버는 재분배 비용($\sum c_{ij} x_{ij}$) 최소화에 집중합니다.
+    -   재분배를 거의 하지 않고($x_{ij}=0$) 높은 부족분($s_i > 0$)을 감수할 수 있습니다.
+    -   **결과**: 공차 운행은 최소화되지만, 서비스 가용성이 떨어질 수 있음.
 
--   **Optimal $\lambda$ (e.g., $\lambda \approx 5$)**:
-    -   Balances the two objectives.
-    -   Performs rebalancing only when the cost $c_{ij}$ is "worth it" (i.e., less than the penalty of not serving).
-    -   Avoids extremely long, inefficient rebalancing trips.
+-   **최적의 $\lambda$ (예: $\lambda \approx 5$)**:
+    -   두 목표 사이의 균형을 맞춥니다.
+    -   재분배 비용 $c_{ij}$가 미충족 페널티보다 저렴할 때만 재분배를 수행합니다.
+    -   즉, "비용 효율적인" 재분배만 수행하고, 비효율적인 장거리 재분배는 포기합니다.
