@@ -125,7 +125,7 @@ def main():
     print(f"\n✅ Saved formatted table to {out_path}")
 
     # Markdown 생성
-    md_path = "lambda_sensitivity_results.md"
+    md_path = "figures/Table2.md"
     with open(md_path, 'w', encoding='utf-8') as f:
         f.write("# Lambda Sensitivity Analysis (Table 2)\n\n")
         f.write(f"Baseline: SAC Hard (Lambda = Infinity)\n\n")
