@@ -15,29 +15,56 @@
 - $s_i \in \mathbb{R}_{\ge 0}$: 지역 $i$의 차량 부족분(Shortage)을 나타내는 Slack 변수 (Soft SAC에서만 사용).
 
 ### 1.1. 주요 성과 지표 (Key Performance Metrics)
+
 본 연구 및 코드에서 사용되는 이익(Profit)과 비용(Cost)의 관계를 다음과 같이 정의합니다.
 
-\begin{align*}
-R_{\text{fare}} &= \sum_{t,i,j} p^t_{ij}\,x^t_{ij} \quad (\text{Gross Fare Revenue}) \\
-C_{\text{serv}} &= \sum_{t,i,j} c^t_{ij}\,x^t_{ij} \quad (\text{Service Cost}) \\
-C_{\text{reb}} &= \sum_{t,i,j} c^t_{ij}\,y^t_{ij} \quad (\text{Rebalancing Cost})
-\end{align*}
+#### 기본 변수 정의
 
-여기서 $x_{ij}^t$는 승객 탑승 이동량(Passenger Flow), $y_{ij}^t$는 공차 재배치 이동량(Rebalancing Flow)입니다.
+| 수학 기호 | 영문 명칭 | 한글 명칭 | 설명 |
+|:---:|:---|:---|:---|
+| $p^t_{ij}$ | Fare Price | 운임 | 시간 $t$에 $i \to j$ 이동 시 승객이 지불하는 요금 |
+| $c^t_{ij}$ | Travel Cost | 이동 비용 | 시간 $t$에 $i \to j$ 이동 시 발생하는 운영 비용 (시간 × $\beta$) |
+| $x^t_{ij}$ | Passenger Flow | 승객 이동량 | 시간 $t$에 $i \to j$로 이동한 승객(차량) 수 |
+| $y^t_{ij}$ | Rebalancing Flow | 공차 이동량 | 시간 $t$에 $i \to j$로 재배치된 빈 차량 수 |
 
-**순 승객 수익 (Net Passenger Revenue, $V$)**:
-승객 운임 수익에서 승객 서비스 운행 비용을 뺀 순수익입니다. (코드 상의 `Served Demand`는 이 값을 의미합니다)
-\begin{align*}
-V &= R_{\text{fare}} - C_{\text{serv}} \\
-  &= \sum_{t,i,j} (p^t_{ij}-c^t_{ij})\,x^t_{ij}
-\end{align*}
+#### 수익 및 비용 구성요소
 
-**총 이익 (Total Profit, $P$)**:
-순 승객 수익에서 공차 재배치 비용을 뺀 최종 이익입니다. (코드 상의 `Reward`는 이 값을 의미합니다)
-\begin{align*}
-P &= V - C_{\text{reb}} \\
-  &= \sum_{t,i,j} (p^t_{ij}-c^t_{ij})\,x^t_{ij} \;-\; \sum_{t,i,j} c^t_{ij}\,y^t_{ij}
-\end{align*}
+$$
+\begin{aligned}
+R_{\text{fare}} &= \sum_{t,i,j} p^t_{ij} \cdot x^t_{ij} \quad &\text{(Gross Fare Revenue: 총 운임 수익)} \\[0.5em]
+C_{\text{serv}} &= \sum_{t,i,j} c^t_{ij} \cdot x^t_{ij} \quad &\text{(Service Cost: 승객 운송 비용)} \\[0.5em]
+C_{\text{reb}} &= \sum_{t,i,j} c^t_{ij} \cdot y^t_{ij} \quad &\text{(Rebalancing Cost: 공차 재배치 비용)}
+\end{aligned}
+$$
+
+#### 순 승객 수익 (Net Passenger Revenue, $V$)
+
+승객을 태워서 얻은 **운임 수익**에서 승객 운송 중 발생한 **운영 비용**을 뺀 순수익입니다.
+
+> **코드 상의 `Served Demand` (또는 `info['profit']`)는 이 값($V$)을 의미합니다.**
+
+$$
+\boxed{V = R_{\text{fare}} - C_{\text{serv}} = \sum_{t,i,j} (p^t_{ij} - c^t_{ij}) \cdot x^t_{ij}}
+$$
+
+#### 총 이익 (Total Profit, $P$)
+
+순 승객 수익에서 **공차 재배치 비용**을 뺀 최종 이익입니다.
+
+> **코드 상의 `Reward` (또는 `episode_reward`)는 이 값($P$)을 의미합니다.**
+
+$$
+\boxed{P = V - C_{\text{reb}} = \sum_{t,i,j} (p^t_{ij} - c^t_{ij}) \cdot x^t_{ij} - \sum_{t,i,j} c^t_{ij} \cdot y^t_{ij}}
+$$
+
+#### 코드-수식 매핑 요약
+
+| 코드 변수명 | 수학 기호 | 의미 |
+|:---|:---:|:---|
+| `info['profit']` / `Served Demand` | $V$ | 순 승객 수익 (Net Passenger Revenue) |
+| `info['rebalancing_cost']` | $C_{\text{reb}}$ | 공차 재배치 비용 |
+| `episode_reward` / `Reward` | $P$ | 총 이익 ($V - C_{\text{reb}}$) |
+| `total_rebalancing_vehicles` | $\sum y_{ij}$ | 총 재배치 차량 수 (Rebalancing Flow) |
 
 ---
 
