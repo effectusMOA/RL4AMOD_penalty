@@ -14,6 +14,31 @@
 - $x_{ij} \in \mathbb{Z}_{\ge 0}$: 지역 $i$에서 지역 $j$로 재분배되는 차량의 수.
 - $s_i \in \mathbb{R}_{\ge 0}$: 지역 $i$의 차량 부족분(Shortage)을 나타내는 Slack 변수 (Soft SAC에서만 사용).
 
+### 1.1. 주요 성과 지표 (Key Performance Metrics)
+본 연구 및 코드에서 사용되는 이익(Profit)과 비용(Cost)의 관계를 다음과 같이 정의합니다.
+
+\begin{align*}
+R_{\text{fare}} &= \sum_{t,i,j} p^t_{ij}\,x^t_{ij} \quad (\text{Gross Fare Revenue}) \\
+C_{\text{serv}} &= \sum_{t,i,j} c^t_{ij}\,x^t_{ij} \quad (\text{Service Cost}) \\
+C_{\text{reb}} &= \sum_{t,i,j} c^t_{ij}\,y^t_{ij} \quad (\text{Rebalancing Cost})
+\end{align*}
+
+여기서 $x_{ij}^t$는 승객 탑승 이동량(Passenger Flow), $y_{ij}^t$는 공차 재배치 이동량(Rebalancing Flow)입니다.
+
+**순 승객 수익 (Net Passenger Revenue, $V$)**:
+승객 운임 수익에서 승객 서비스 운행 비용을 뺀 순수익입니다. (코드 상의 `Served Demand`는 이 값을 의미합니다)
+\begin{align*}
+V &= R_{\text{fare}} - C_{\text{serv}} \\
+  &= \sum_{t,i,j} (p^t_{ij}-c^t_{ij})\,x^t_{ij}
+\end{align*}
+
+**총 이익 (Total Profit, $P$)**:
+순 승객 수익에서 공차 재배치 비용을 뺀 최종 이익입니다. (코드 상의 `Reward`는 이 값을 의미합니다)
+\begin{align*}
+P &= V - C_{\text{reb}} \\
+  &= \sum_{t,i,j} (p^t_{ij}-c^t_{ij})\,x^t_{ij} \;-\; \sum_{t,i,j} c^t_{ij}\,y^t_{ij}
+\end{align*}
+
 ---
 
 ## 2. Hard SAC (Hard Constraint LP)

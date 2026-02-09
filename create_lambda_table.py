@@ -82,13 +82,10 @@ def main():
     # 효율성 지표 1: (Served / Cost) Absolute Ratio
     df['Efficiency (Served/Cost)'] = df['Served'] / df['Cost']
     
-    # 효율성 지표 2: 변화율 비율 (Served % / Cost %)
-    # 주의: Div by zero 방지. Cost %가 0이면 0 처리.
-    def calc_ratio(row):
-        if abs(row['Cost %']) < 0.01: return 0
-        return row['Served %'] / row['Cost %']
-
-    df['Incr. Ratio (S%/C%)'] = df.apply(calc_ratio, axis=1)
+    # 효율성 지표 2 (User Request): Reb. Flow / Reb. Cost (veh/$)
+    # 값이 클수록 효율적 (단위 비용당 더 많은 차량 이동)
+    # 0으로 나누는 경우 방지
+    df['Efficiency (veh/$)'] = df.apply(lambda x: x['RebFlow'] / x['Cost'] if x['Cost'] > 0 else 0, axis=1)
 
     # 6. 포맷팅 (User Request: "55,409 (+2.84%)")
     def format_val_pct(val, pct):
@@ -99,10 +96,9 @@ def main():
     df['Reb. Cost ($)'] = df.apply(lambda x: format_val_pct(x['Cost'], x['Cost %']), axis=1)
     df['Reb. Flow (veh)'] = df.apply(lambda x: format_val_pct(x['RebFlow'], x['RebFlow %']), axis=1)
     
-    # Efficiency Ratio (Served% / Cost%) - already calculated as 'Incr. Ratio (S%/C%)'
-    # Rename for clarity
-    df = df.rename(columns={'Incr. Ratio (S%/C%)': 'Efficiency (S%/C%)'})
-    
+    # Efficiency is simple float, just format it
+    df['Avg Reb Flow (veh/$)'] = df['Efficiency (veh/$)'].apply(lambda x: f"{x:.4f}")
+
     # Baseline special handling (remove 0.00% or keep it? User example showed +2.84%, so baseline 0.00% is consistent)
     
     # 7. 출력 및 저장
@@ -112,7 +108,7 @@ def main():
         "Served Demand", 
         "Reb. Cost ($)", 
         "Reb. Flow (veh)", 
-        "Efficiency (S%/C%)"
+        "Avg Reb Flow (veh/$)"
     ]
     
     print("\n[Lambda Sensitivity Table 2]")
@@ -131,8 +127,8 @@ def main():
         f.write(f"Baseline: SAC Hard (Lambda = Infinity)\n\n")
         f.write(df[disp_cols].to_markdown(index=False))
         f.write("\n\n### Analysis\n")
-        f.write("- **Efficiency (S%/C%)**: Ratio of Served Demand growth to Rebalancing Cost growth. (Higher/Positive is better)\n")
-        f.write("- **Lambda 9**: Demonstrated the most balanced performance improvement.\n")
+        f.write("- **Avg Reb Flow (veh/$)**: Rebalancing flow per dollar cost. Higher value indicates more efficient rebalancing (more vehicles moved for same cost).\n")
+        f.write("- **Lambda 9**: Demonstrated a balanced performance.\n")
     
     print(f"✅ Saved Markdown to {md_path}")
 
