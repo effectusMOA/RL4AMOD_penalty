@@ -82,9 +82,8 @@ def main():
     # 효율성 지표 1: (Served / Cost) Absolute Ratio
     df['Efficiency (Served/Cost)'] = df['Served'] / df['Cost']
     
-    # 효율성 지표 2 (User Request): Reb. Flow / Reb. Cost (veh/$)
+    # 효율성 지표 2: Reb. Flow / Reb. Cost (veh/$)
     # 값이 클수록 효율적 (단위 비용당 더 많은 차량 이동)
-    # 0으로 나누는 경우 방지
     df['Efficiency (veh/$)'] = df.apply(lambda x: x['RebFlow'] / x['Cost'] if x['Cost'] > 0 else 0, axis=1)
 
     # 6. 포맷팅 (User Request: "55,409 (+2.84%)")
@@ -92,23 +91,21 @@ def main():
         return f"{val:,.0f} ({pct:+.2f}%)"
 
     df['Reward ($)'] = df.apply(lambda x: format_val_pct(x['Reward'], x['Reward %']), axis=1)
-    df['Served Demand'] = df.apply(lambda x: format_val_pct(x['Served'], x['Served %']), axis=1)
+    df['Trip Margin ($)'] = df.apply(lambda x: format_val_pct(x['Served'], x['Served %']), axis=1)
     df['Reb. Cost ($)'] = df.apply(lambda x: format_val_pct(x['Cost'], x['Cost %']), axis=1)
     df['Reb. Flow (veh)'] = df.apply(lambda x: format_val_pct(x['RebFlow'], x['RebFlow %']), axis=1)
     
-    # Efficiency is simple float, just format it
-    df['Avg Reb Flow (veh/$)'] = df['Efficiency (veh/$)'].apply(lambda x: f"{x:.4f}")
+    # Efficiency: Flow/Cost (higher = better)
+    df['Efficiency (veh/$)'] = df['Efficiency (veh/$)'].apply(lambda x: f"{x:.4f}")
 
-    # Baseline special handling (remove 0.00% or keep it? User example showed +2.84%, so baseline 0.00% is consistent)
-    
     # 7. 출력 및 저장
     disp_cols = [
         "Lambda", 
         "Reward ($)", 
-        "Served Demand", 
+        "Trip Margin ($)", 
         "Reb. Cost ($)", 
         "Reb. Flow (veh)", 
-        "Avg Reb Flow (veh/$)"
+        "Efficiency (veh/$)"
     ]
     
     print("\n[Lambda Sensitivity Table 2]")

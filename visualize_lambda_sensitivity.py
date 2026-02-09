@@ -62,8 +62,12 @@ def main():
     print("\nDEBUG: DataFrame content:")
     print(df[['Label', 'Lambda_Val', 'Reward', 'Cost']])
     
-    # Calculate Efficiency ($/veh)
-    df['AvgCostPerVeh'] = df.apply(lambda x: x['Cost'] / x['RebFlow'] if x['RebFlow'] > 0 else 0, axis=1)
+    # Calculate Trip Margin (Served - Cost would be incorrect; Served IS the margin already in this data)
+    # In this context: Served = Trip Margin (p-c)*x, Reward = Profit = Served - RebCost
+    df['TripMargin'] = df['Served']  # Served Demand is actually Trip Margin in our formulation
+    
+    # Calculate Efficiency (Flow/Cost) - Higher is better
+    df['Efficiency'] = df.apply(lambda x: x['RebFlow'] / x['Cost'] if x['Cost'] > 0 else 0, axis=1)
 
     # Separate Hard from numerical Lambdas for plotting
     df_soft = df[df['Label'] != 'Hard'].copy()
@@ -71,70 +75,81 @@ def main():
         df_hard = df[df['Label'] == 'Hard'].iloc[0]
     else:
         print("WARNING: Hard baseline not found!")
-        df_hard = df_soft.iloc[0] # Fallback to avoid crash
+        df_hard = df_soft.iloc[0]
 
-    # Plotting
-    fig, axes = plt.subplots(1, 3, figsize=(24, 6))
+    # Plotting: 3 subplots for clarity
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
     
-    # Plot 1: Reward (Left) & Served Demand (Right)
+    # =============================================
+    # Plot (a): Profit, Trip Margin, Rebalancing Cost
+    # =============================================
     ax1 = axes[0]
-    lns1 = ax1.plot(df_soft['Lambda_Val'], df_soft['Reward'], 'b-o', label='Reward ($)')
-    ax1.axhline(y=df_hard['Reward'], color='b', linestyle='--', alpha=0.5, label='Hard Reward')
-    ax1.set_xlabel('Lambda')
-    ax1.set_ylabel('Reward ($)', color='b')
+    
+    # Primary Y-axis: Reward & Trip Margin (similar scale)
+    ln1 = ax1.plot(df_soft['Lambda_Val'], df_soft['Reward'], 'b-o', linewidth=2, markersize=8, label='Profit')
+    ln2 = ax1.plot(df_soft['Lambda_Val'], df_soft['TripMargin'], 'g-s', linewidth=2, markersize=8, label='Trip Margin')
+    ax1.axhline(y=df_hard['Reward'], color='b', linestyle='--', alpha=0.4)
+    ax1.axhline(y=df_hard['TripMargin'], color='g', linestyle='--', alpha=0.4)
+    ax1.set_xlabel('Lambda', fontsize=12)
+    ax1.set_ylabel('Revenue / Profit ($)', fontsize=12, color='b')
     ax1.tick_params(axis='y', labelcolor='b')
     ax1.grid(True, alpha=0.3)
-
-    ax2 = ax1.twinx()
-    lns2 = ax2.plot(df_soft['Lambda_Val'], df_soft['Served'], 'g-s', label='Served Demand')
-    ax2.axhline(y=df_hard['Served'], color='g', linestyle='--', alpha=0.5, label='Hard Served')
-    ax2.set_ylabel('Served Demand', color='g')
-    ax2.tick_params(axis='y', labelcolor='g')
-
-    # Legend
-    lns = lns1 + lns2
+    
+    # Secondary Y-axis: Rebalancing Cost
+    ax1b = ax1.twinx()
+    ln3 = ax1b.plot(df_soft['Lambda_Val'], df_soft['Cost'], 'r-^', linewidth=2, markersize=8, label='Reb. Cost')
+    ax1b.axhline(y=df_hard['Cost'], color='r', linestyle='--', alpha=0.4)
+    ax1b.set_ylabel('Rebalancing Cost ($)', fontsize=12, color='r')
+    ax1b.tick_params(axis='y', labelcolor='r')
+    
+    lns = ln1 + ln2 + ln3
     labs = [l.get_label() for l in lns]
-    ax1.legend(lns, labs, loc='center right')
-    ax1.set_title('Reward & Served Demand vs Lambda')
-
-    # Plot 2: Reb Cost (Left) & Reb Flow (Right)
-    ax3 = axes[1]
-    lns3 = ax3.plot(df_soft['Lambda_Val'], df_soft['Cost'], 'r-o', label='Reb. Cost ($)')
-    ax3.axhline(y=df_hard['Cost'], color='r', linestyle='--', alpha=0.5, label='Hard Cost')
-    ax3.set_xlabel('Lambda')
-    ax3.set_ylabel('Rebalancing Cost ($)', color='r')
-    ax3.tick_params(axis='y', labelcolor='r')
+    ax1.legend(lns, labs, loc='best', fontsize=10)
+    ax1.set_title('(a) Profit, Trip Margin & Reb. Cost', fontsize=13)
+    
+    # =============================================
+    # Plot (b): Rebalancing Cost & Flow
+    # =============================================
+    ax2 = axes[1]
+    
+    ln4 = ax2.plot(df_soft['Lambda_Val'], df_soft['Cost'], 'r-o', linewidth=2, markersize=8, label='Reb. Cost ($)')
+    ax2.axhline(y=df_hard['Cost'], color='r', linestyle='--', alpha=0.4)
+    ax2.set_xlabel('Lambda', fontsize=12)
+    ax2.set_ylabel('Rebalancing Cost ($)', fontsize=12, color='r')
+    ax2.tick_params(axis='y', labelcolor='r')
+    ax2.grid(True, alpha=0.3)
+    
+    ax2b = ax2.twinx()
+    ln5 = ax2b.plot(df_soft['Lambda_Val'], df_soft['RebFlow'], 'm-s', linewidth=2, markersize=8, label='Reb. Flow (veh)')
+    ax2b.axhline(y=df_hard['RebFlow'], color='m', linestyle='--', alpha=0.4)
+    ax2b.set_ylabel('Rebalancing Flow (veh)', fontsize=12, color='m')
+    ax2b.tick_params(axis='y', labelcolor='m')
+    
+    lns = ln4 + ln5
+    labs = [l.get_label() for l in lns]
+    ax2.legend(lns, labs, loc='best', fontsize=10)
+    ax2.set_title('(b) Rebalancing Cost & Flow', fontsize=13)
+    
+    # =============================================
+    # Plot (c): Efficiency (standalone)
+    # =============================================
+    ax3 = axes[2]
+    
+    ax3.plot(df_soft['Lambda_Val'], df_soft['Efficiency'], 'k-D', linewidth=2, markersize=8, label='Efficiency (veh/$)')
+    ax3.axhline(y=df_hard['Efficiency'], color='k', linestyle='--', alpha=0.5, label='Hard Baseline')
+    ax3.set_xlabel('Lambda', fontsize=12)
+    ax3.set_ylabel('Efficiency (veh/$)', fontsize=12)
     ax3.grid(True, alpha=0.3)
+    ax3.legend(loc='best', fontsize=10)
+    ax3.set_title('(c) Efficiency: Flow / Cost\n(Higher = Better)', fontsize=13)
 
-    ax4 = ax3.twinx()
-    lns4 = ax4.plot(df_soft['Lambda_Val'], df_soft['RebFlow'], 'm-s', label='Reb. Flow (veh)')
-    ax4.axhline(y=df_hard['RebFlow'], color='m', linestyle='--', alpha=0.5, label='Hard Flow')
-    ax4.set_ylabel('Rebalancing Flow (veh)', color='m')
-    ax4.tick_params(axis='y', labelcolor='m')
-
-    # Legend
-    lns = lns3 + lns4
-    labs = [l.get_label() for l in lns]
-    ax3.legend(lns, labs, loc='center right')
-    ax3.set_title('Rebalancing Cost & Flow vs Lambda')
-
-    # Plot 3: Avg Cost per Vehicle (Efficiency)
-    ax5 = axes[2]
-    lns5 = ax5.plot(df_soft['Lambda_Val'], df_soft['AvgCostPerVeh'], 'k-D', label='Avg Cost ($/veh)')
-    ax5.axhline(y=df_hard['AvgCostPerVeh'], color='k', linestyle='--', alpha=0.5, label='Hard Efficiency')
-    ax5.set_xlabel('Lambda')
-    ax5.set_ylabel('Avg Reb. Cost per Vehicle ($)', color='k')
-    ax5.tick_params(axis='y', labelcolor='k')
-    ax5.grid(True, alpha=0.3)
-    ax5.legend(loc='upper right')
-    ax5.set_title('Efficiency: Avg Cost per Rebalancing Vehicle\n(Lower is Better)')
-
-    plt.suptitle('Figure 3: Lambda Sensitivity Analysis', fontsize=16)
+    plt.suptitle('Figure 3: Lambda Sensitivity Analysis', fontsize=16, fontweight='bold')
     plt.tight_layout()
     
     out_path = 'figures/figure3.png'
-    plt.savefig(out_path, dpi=300)
+    plt.savefig(out_path, dpi=300, bbox_inches='tight')
     print(f"✅ Saved figure to {out_path}")
 
 if __name__ == "__main__":
     main()
+
