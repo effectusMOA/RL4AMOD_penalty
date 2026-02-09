@@ -84,19 +84,26 @@ def main():
     
     # 효율성 지표 2: Reb. Flow / Reb. Cost (veh/$)
     # 값이 클수록 효율적 (단위 비용당 더 많은 차량 이동)
-    df['Efficiency (veh/$)'] = df.apply(lambda x: x['RebFlow'] / x['Cost'] if x['Cost'] > 0 else 0, axis=1)
+    df['Efficiency_Raw'] = df.apply(lambda x: x['RebFlow'] / x['Cost'] if x['Cost'] > 0 else 0, axis=1)
+    
+    # Efficiency % change relative to Hard baseline
+    base_efficiency = df.loc[df['Lambda'] == 'Hard', 'Efficiency_Raw'].values[0]
+    df['Efficiency %'] = (df['Efficiency_Raw'] - base_efficiency) / base_efficiency * 100
 
     # 6. 포맷팅 (User Request: "55,409 (+2.84%)")
     def format_val_pct(val, pct):
         return f"{val:,.0f} ({pct:+.2f}%)"
+    
+    def format_eff_pct(val, pct):
+        return f"{val:.4f} ({pct:+.2f}%)"
 
     df['Reward ($)'] = df.apply(lambda x: format_val_pct(x['Reward'], x['Reward %']), axis=1)
     df['Trip Margin ($)'] = df.apply(lambda x: format_val_pct(x['Served'], x['Served %']), axis=1)
     df['Reb. Cost ($)'] = df.apply(lambda x: format_val_pct(x['Cost'], x['Cost %']), axis=1)
     df['Reb. Flow (veh)'] = df.apply(lambda x: format_val_pct(x['RebFlow'], x['RebFlow %']), axis=1)
     
-    # Efficiency: Flow/Cost (higher = better)
-    df['Efficiency (veh/$)'] = df['Efficiency (veh/$)'].apply(lambda x: f"{x:.4f}")
+    # Efficiency: Flow/Cost with % change
+    df['Efficiency (veh/$)'] = df.apply(lambda x: format_eff_pct(x['Efficiency_Raw'], x['Efficiency %']), axis=1)
 
     # 7. 출력 및 저장
     disp_cols = [
