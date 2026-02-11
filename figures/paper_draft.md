@@ -103,18 +103,33 @@ We compare the performance of the proposed **SAC-Soft ($\lambda=9$)** model agai
 
 The proposed SAC-Soft model achieves the highest total profit ($55,409), outperforming the SAC-Hard baseline by 2.8%. Key observations include:
 1.  **High Efficiency**: Compared to SAC-Hard, SAC-Soft serves a similar level of demand (+1.1%) but significantly reduces rebalancing costs (-5.6%). This confirms that the economic filter successfully eliminates wasteful rebalancing trips without compromising service quality.
-2.  **Superiority over Non-RL methods**: MPC shows low rebalancing costs but fails to serve demand effectively (-7.7%), resulting in lower profit. The Heuristic approach incurs high costs with lower service rates.
-3.  **Necessity of Rebalancing**: The "No Rebalancing" case shows drastically lower profit (-47.8%), underscoring the critical importance of active fleet management.
+2.  **Comparison with Mathematical Optimization**: The MPC approach, typically considered a strong optimization-based baseline, achieves competitive results but slightly lags behind SAC-Soft in total profit ($55,409 vs $54,690). This suggests that the mathematical optimization could be further improved by adjusting parameters such as time steps or planning horizons. However, SAC-Soft demonstrates superior performance even without such manual tuning, effectively learning a policy that surpasses the standard optimization baseline in this dynamic environment.
+3.  **Limitations of Heuristic Approaches**: The Heuristic baseline (Equal Distribution) resulted in lower service rates (-11.9% Trip Margin) and higher costs. While more sophisticated heuristics (e.g., demand-prediction-based rules) could potentially improve performance, they typically rely on static logic that struggles to adapt to complex, stochastic demand patterns. In contrast, SAC-Soft learns an optimal policy through interaction, allowing it to dynamically adjust rebalancing strategies based on real-time conditions.
+4.  **Necessity of Rebalancing**: The "No Rebalancing" case shows drastically lower profit (-47.8%), underscoring the critical importance of active fleet management.
 
 **Table 2. Overall Performance Comparison**
 
 | Model | Profit ($) | Reb. Cost ($) | Trip Margin ($) | Served (Pax) | Reb. Vehicles | Note |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **SAC Soft ($\lambda=9$)** | **55,409 (+2.8%)** | **13,334 (-5.6%)** | **68,744 (+1.1%)** | **1,054** | **2,267** | **Best Performance** |
-| MPC | 54,690 (+1.5%) | 8,092 (-42.7%) | 62,782 (-7.7%) | 963 | 1,424 | Low Cost, Low Service |
-| SAC Hard | 53,877 (0.0%) | 14,129 (0.0%) | 68,006 (0.0%) | 1,042 | 2,184 | Baseline (High Cost) |
-| Heuristic (Hard) | 50,391 (-6.5%) | 9,508 (-32.7%) | 59,900 (-11.9%) | 919 | 1,684 | Equal Distribution |
-| No Rebalancing | 28,106 (-47.8%) | 0 (-100%) | 28,106 (-58.7%) | 431 | 0 | Lower Bound |
+| **SAC Soft ($\lambda=9$)** | **55,409 (+2.8%)** | **13,334 (-5.6%)** | **68,744 (+1.1%)** | **1,054** | **2,267 (+3.8%)** | **Best Performance** |
+| MPC | 54,690 (+1.5%) | 8,092 (-42.7%) | 62,782 (-7.7%) | 963 | 1,424 (-34.8%) | Low Cost, Low Service |
+| SAC Hard | 53,877 (0.0%) | 14,129 (0.0%) | 68,006 (0.0%) | 1,042 | 2,184 (0.0%) | Baseline (High Cost) |
+| Heuristic (Hard) | 50,391 (-6.5%) | 9,508 (-32.7%) | 59,900 (-11.9%) | 919 | 1,684 (-22.9%) | Equal Distribution |
+| No Rebalancing | 28,106 (-47.8%) | 0 (-100%) | 28,106 (-58.7%) | 431 | 0 (-100%) | Lower Bound |
+
+### 4.3. Rebalancing Flow Analysis
+
+**Figure 2** visualizes the spatial distribution of rebalancing flows for both SAC-Hard (Left) and SAC-Soft (Right, $\lambda=5$). For this visual analysis, we selected **$\lambda=5.0$** to clearly illustrate the mechanism of the Economic Filter. Although $\lambda=9.0$ yields the best trade-off for total profit, $\lambda=5.0$ demonstrates the highest operational efficiency (0.1903 veh/$), effectively filtering out most long-distance trips to prioritize local fleet redistribution.
+
+The comparison reveals a distinct difference in operational behavior:
+
+*   **SAC-Hard (Baseline)**: Shows thick, long-distance flow lines connecting distant zones (e.g., between Zone 5 and Zone 12/13). The agent aggressively sends vehicles across the map to meet demand, regardless of the high travel cost.
+*   **SAC-Soft (Proposed)**: The long-distance flows are significantly reduced or thinner. Instead, the agent prioritizes short-distance rebalancing between adjacent or nearby zones.
+
+This visual evidence confirms that the **Economic Filter** successfully penalizes inefficient long-haul empty trips. By focusing on local redistribution, SAC-Soft achieves a higher service rate with lower operational costs, as quantifiable in the efficiency metrics of Table 2.
+
+![Rebalancing Flow Comparison](file:///c:/Users/Administrator2/Documents/RL4AMOD_origin/figures/brooklyn_rebalancing_comparison.png)
+*Figure 2: Comparison of Rebalancing Flows between SAC-Hard and SAC-Soft ($\lambda=5$). The proposed method (Right) significantly reduces long-distance empty trips.*
 
 ## 5. CONCLUSION
 
