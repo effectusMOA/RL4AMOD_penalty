@@ -76,26 +76,9 @@ In the proposed Soft-Constrained Rebalancing capability, the penalty parameter $
 *   **Low $\lambda$ (e.g., 3.0)**: The system is highly conservative, rejecting even potentially beneficial rebalancing trips if their cost exceeds the low penalty threshold. This results in low rebalancing costs ($5,459) but also significantly lower trip margin ($45,189) due to missed demand.
 *   **High $\lambda$ (e.g., 13.0)**: The system behaves similarly to the Hard-Constrained baseline ($\lambda \to \infty$), prioritizing target fulfillment over cost. While trip margin is high, rebalancing costs escalate ($10,207) with diminishing returns in profit.
 
-The goal is to find an optimal $\lambda$ where the marginal gain in trip margin exceeds the marginal increase in rebalancing cost. As shown in **Table 1**, $\lambda=9.0$ yields the highest total profit ($55,410), achieving a 2.84% improvement over the Hard baseline. Notably, at $\lambda=9.0$, the system maintains a high service level (Trip Margin +1.08%) while reducing rebalancing costs by 5.62%, demonstrating superior efficiency.
+The goal is to find an optimal $\lambda$ where the marginal gain in trip margin exceeds the marginal increase in rebalancing cost. Our analysis indicates that $\lambda=9.0$ yields the highest total profit ($55,410), achieving a 2.84% improvement over the Hard baseline. Notably, at $\lambda=9.0$, the system maintains a high service level (Trip Margin +1.08%) while reducing rebalancing costs by 5.62%, demonstrating superior efficiency.
 
 The "Efficiency" metric (defined as Rebalancing Flow per Dollar Cost, veh/$) further validates this. The Soft-Constrained model consistently shows higher efficiency than the Hard baseline, indicating that it selectively filters out inefficient, high-cost rebalancing trips.
-
-**Table 1. Lambda Sensitivity Analysis**
-
-| Lambda | Profit ($) | Trip Margin ($) | Reb. Cost ($) | Reb. Flow (veh) | Efficiency (veh/$) |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| 3.0 | 39,730 (-26.26%) | 45,189 (-33.55%) | 5,459 (-61.36%) | 1,383 (-36.70%) | 0.2533 (+63.82%) |
-| 4.0 | 48,738 (-9.54%) | 59,083 (-13.12%) | 10,345 (-26.78%) | 2,151 (-1.53%) | 0.2079 (+34.49%) |
-| 5.0 | 52,090 (-3.32%) | 63,007 (-7.35%) | 10,916 (-22.74%) | 2,077 (-4.89%) | 0.1903 (+23.10%) |
-| 6.0 | 52,736 (-2.12%) | 66,886 (-1.65%) | 14,150 (+0.14%) | 2,313 (+5.91%) | 0.1635 (+5.76%) |
-| 7.0 | 53,674 (-0.38%) | 68,035 (+0.04%) | 14,360 (+1.63%) | 2,292 (+4.95%) | 0.1596 (+3.26%) |
-| 8.0 | 54,871 (+1.84%) | 68,749 (+1.09%) | 13,878 (-1.78%) | 2,363 (+8.17%) | 0.1702 (+10.13%) |
-| **9.0** | **55,410 (+2.84%)** | **68,744 (+1.08%)** | **13,335 (-5.62%)** | **2,268 (+3.82%)** | **0.1701 (+10.01%)** |
-| 10.0 | 55,235 (+2.52%) | 67,914 (-0.14%) | 12,679 (-10.27%) | 2,133 (-2.35%) | 0.1682 (+8.82%) |
-| 11.0 | 53,880 (+0.00%) | 63,839 (-6.13%) | 9,960 (-29.51%) | 1,999 (-8.48%) | 0.2007 (+29.84%) |
-| 12.0 | 53,393 (-0.90%) | 63,560 (-6.54%) | 10,168 (-28.04%) | 1,972 (-9.72%) | 0.1939 (+25.46%) |
-| 13.0 | 53,699 (-0.33%) | 63,906 (-6.03%) | 10,207 (-27.76%) | 1,984 (-9.16%) | 0.1944 (+25.75%) |
-| **Hard** | 53,878 (+0.00%) | 68,007 (+0.00%) | 14,129 (+0.00%) | 2,184 (+0.00%) | 0.1546 (+0.00%) |
 
 ### 4.2. Comparative Performance Analysis
 
