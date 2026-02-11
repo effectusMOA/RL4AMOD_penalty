@@ -108,13 +108,13 @@ The proposed SAC-Soft model achieves the highest total profit ($55,409), outperf
 
 **Table 2. Overall Performance Comparison**
 
-| Model | Profit ($) | Reb. Cost ($) | Served Demand | Reb. Vehicles | Note |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| **SAC Soft ($\lambda=9$)** | **55,409 (+2.8%)** | **13,334 (-5.6%)** | **68,744 (+1.1%)** | **2,267** | **Best Performance** |
-| MPC | 54,690 (+1.5%) | 8,092 (-42.7%) | 62,782 (-7.7%) | 1,424 | Low Cost, Low Service |
-| SAC Hard | 53,877 (0.0%) | 14,129 (0.0%) | 68,006 (0.0%) | 2,184 | Baseline (High Cost) |
-| Heuristic (Hard) | 50,391 (-6.5%) | 9,508 (-32.7%) | 59,900 (-11.9%) | 1,684 | Equal Distribution |
-| No Rebalancing | 28,106 (-47.8%) | 0 (-100%) | 28,106 (-58.7%) | 0 | Lower Bound |
+| Model | Profit ($) | Reb. Cost ($) | Trip Margin ($) | Served (Pax) | Reb. Vehicles | Note |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **SAC Soft ($\lambda=9$)** | **55,409 (+2.8%)** | **13,334 (-5.6%)** | **68,744 (+1.1%)** | **1,054** | **2,267** | **Best Performance** |
+| MPC | 54,690 (+1.5%) | 8,092 (-42.7%) | 62,782 (-7.7%) | 963 | 1,424 | Low Cost, Low Service |
+| SAC Hard | 53,877 (0.0%) | 14,129 (0.0%) | 68,006 (0.0%) | 1,042 | 2,184 | Baseline (High Cost) |
+| Heuristic (Hard) | 50,391 (-6.5%) | 9,508 (-32.7%) | 59,900 (-11.9%) | 919 | 1,684 | Equal Distribution |
+| No Rebalancing | 28,106 (-47.8%) | 0 (-100%) | 28,106 (-58.7%) | 431 | 0 | Lower Bound |
 
 ## 5. CONCLUSION
 
