@@ -1,3 +1,5 @@
+# Cost-Aware AMoD Rebalancing: Enhancing Efficiency via Soft Actor-Critic and Soft-Constrained Linear Programming
+
 # 3. Method
 
 ![Figure 1: Comparison of Rebalancing Frameworks](figures/figure1.png)
@@ -119,7 +121,9 @@ The proposed SAC-Soft model achieves the highest total profit ($55,409), outperf
 
 ### 4.3. Rebalancing Flow Analysis
 
-**Figure 2** visualizes the spatial distribution of rebalancing flows for both SAC-Hard (Left) and SAC-Soft (Right, $\lambda=5$). For this visual analysis, we selected **$\lambda=5.0$** to clearly illustrate the mechanism of the Economic Filter. Although $\lambda=9.0$ yields the best trade-off for total profit, $\lambda=5.0$ demonstrates the highest operational efficiency (0.1903 veh/$), effectively filtering out most long-distance trips to prioritize local fleet redistribution.
+### 4.3. Rebalancing Flow Analysis
+
+**Figure 2** visualizes the spatial distribution of rebalancing flows for both SAC-Hard (Left) and SAC-Soft (Right, $\lambda=11$). For this visual analysis, we selected **$\lambda=11.0$** to demonstrate an efficiency-prioritized scenario. While $\lambda=9.0$ maximizes total profit, $\lambda=11.0$ achieves the highest operational efficiency (0.2007 veh/$)—a 29.8% improvement over the baseline. This choice illustrates how the Economic Filter can be tuned to aggressively minimize rebalancing costs while maintaining profitability comparable to the hard-constrained baseline ($53,880 vs $53,877).
 
 The comparison reveals a distinct difference in operational behavior:
 
@@ -129,7 +133,7 @@ The comparison reveals a distinct difference in operational behavior:
 This visual evidence confirms that the **Economic Filter** successfully penalizes inefficient long-haul empty trips. By focusing on local redistribution, SAC-Soft achieves a higher service rate with lower operational costs, as quantifiable in the efficiency metrics of Table 2.
 
 ![Rebalancing Flow Comparison](file:///c:/Users/Administrator2/Documents/RL4AMOD_origin/figures/brooklyn_rebalancing_comparison.png)
-*Figure 2: Comparison of Rebalancing Flows between SAC-Hard and SAC-Soft ($\lambda=5$). The proposed method (Right) significantly reduces long-distance empty trips.*
+*Figure 2: Comparison of Rebalancing Flows between SAC-Hard and SAC-Soft ($\lambda=11$). The proposed method (Right) significantly reduces long-distance empty trips.*
 
 ## 5. CONCLUSION
 
