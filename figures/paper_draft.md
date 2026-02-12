@@ -53,11 +53,21 @@ $$
 
 The objective function (Eq. 3a) minimizes the rebalancing cost. Constraint (Eq. 3b) enforces that the resulting number of vehicles (LHS) meets or exceeds the desired number of vehicles (RHS). Constraint (Eq. 3c) ensures that the rebalancing outflow from a region does not exceed the available vehicles in that region.
 
-## 3.2. Proposed Approach: Soft-Constrained Rebalancing with Economic Filter
+## 2. LITERATURE REVIEW
 
-The strict constraint in Eq. (3b) (Hard LP) often forces the system to execute inefficient long-distance rebalancing even when the cost outweighs the benefit, leading to high operational costs and congestion.
+Existing research on operational optimization, such as passenger deployment, routing and rebalancing in AMoD systems, is based on the premise of centralized control from the perspective of system optimization in fleet-level decision making. The reason for assuming centralized control is that the following information is required: From the system’s perspective, it is necessary to understand the overall demand distribution and the state of vehicle distribution by zone, and to forecast future demand. Based on these, it is necessary to simultaneously decide on the movement of controlled vehicles. Under such centralized control, RL generates strategic goals and makes those goals feasible through optimization. A typical model is called a hierarchical structure (2,3). In rebalancing, RL at the higher level proposes the desired idle vehicle allocation in each zone, which is then converted into a feasible relocation flow by an optimization model at the lower level. The output is the target allocation for each zone.
 
-To address this, we propose a **Soft-Constrained Rebalancing** approach integrated with an Economic Filter (Slack Mechanism). We relax the hard constraint (Eq. 3b) and introduce a penalty term $\lambda$ for shortages ($s_i^t$) in the objective function:
+In this study, we employ **Soft Actor-Critic (SAC)** (Haarnoja et al., 2018) as the high-level policy learner. The rationale for selecting SAC is threefold: First, as an off-policy algorithm, it reuses past experiences stored in a replay buffer, significantly improving sample efficiency compared to on-policy methods. Second, its maximum entropy framework encourages exploration, which prevents premature convergence to sub-optimal policies and ensures stable learning even in unstable, stochastic mesoscopic environments. Finally, SAC naturally handles continuous action spaces, allowing the agent to output precise, continuous probability distributions for rebalancing ratios, rather than being limited to discrete actions.
+
+To determine whether the proposed target distribution of SAC is feasible, it is determined based on the objective function and constraints through optimization model. The objective functions and constraints presented for each of the following previous studies are explained below.
+
+Common constraints are non-negative and integer constraints and vehicle availability constraints which assume that no region can move vehicles it does not actually have, or that the number of vehicles that can be sent from a zone cannot exceed the number of vehicles currently idle.
+
+The objective function of the rebalancing optimization model of Tresca et al. (2025) is to minimize the total cost of idle vehicle travel. The constraint is the number of AMoD vehicles in the zone after rebalancing must be greater than or equal to the number of vehicles proposed by RL, which has the properties of a soften constraint (2).
+
+Li et al. (2025) propose that the objective function is to minimize the rebalancing cost, and the constraint is that the number of idle vehicles in each zone after rebalancing must be greater than RL target (3).
+
+Li et al. (2026) propose that the objective function for rebalancing idle vehicles is to minimize the sum of inter-zonal service imbalance and rebalancing costs. The constraints were as follows: first, the rebalancing destination of idle vehicles is limited to only one; second, the number of vehicles rebalanced to a zone is limited so as not to exceed the predicted demand of that zone (5).
 
 $$
 \min_{\{y_{ij}^t, s_i^t\}} \left( \sum_{(i,j) \in E} c_{ij}^t y_{ij}^t + \lambda \sum_{i \in V} s_i^t \right)
