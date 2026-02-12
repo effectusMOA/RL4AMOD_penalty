@@ -120,17 +120,27 @@ The proposed SAC-Soft model achieves the highest total profit ($55,409), outperf
 
 ### 4.3. Rebalancing Flow Analysis
 
-**Figure 2** visualizes the spatial distribution of rebalancing flows for both SAC-Hard (Left) and SAC-Soft (Right, $\lambda=11$). For this visual analysis, we selected **$\lambda=11.0$** to demonstrate an efficiency-prioritized scenario. While $\lambda=9.0$ maximizes total profit, $\lambda=11.0$ achieves the highest operational efficiency (0.2007 veh/$)—a 29.8% improvement over the baseline. This choice illustrates how the Economic Filter can be tuned to aggressively minimize rebalancing costs while maintaining profitability comparable to the hard-constrained baseline ($53,880 vs $53,877).
+**Figure 4** visualizes the spatial distribution of rebalancing flows for both SAC-Hard (Left) and SAC-Soft (Right, $\lambda=11$). As previously discussed, we selected **$\lambda=11.0$** for this visual analysis to demonstrate the scenario where operational efficiency is maximized.
 
 The comparison reveals a distinct difference in operational behavior:
 
-*   **SAC-Hard (Baseline)**: Shows thick, long-distance flow lines connecting distant zones (e.g., between Zone 5 and Zone 12/13). The agent aggressively sends vehicles across the map to meet demand, regardless of the high travel cost.
-*   **SAC-Soft (Proposed)**: The long-distance flows are significantly reduced or thinner. Instead, the agent prioritizes short-distance rebalancing between adjacent or nearby zones.
+*   **SAC-Hard**: Shows thick, long-distance flow lines connecting distant zones (e.g., between Zone 5 and Zone 12/13). The agent aggressively sends vehicles across the map to meet demand, regardless of the high travel cost.
+*   **SAC-Soft**: The long-distance flows are significantly reduced or thinner. Instead, the agent prioritizes short-distance rebalancing between adjacent or nearby zones.
 
 This visual evidence confirms that the **Economic Filter** successfully penalizes inefficient long-haul empty trips. By focusing on local redistribution, SAC-Soft achieves a higher service rate with lower operational costs, as quantifiable in the efficiency metrics of Table 2.
 
 ![Rebalancing Flow Comparison](file:///c:/Users/Administrator2/Documents/RL4AMOD_origin/figures/brooklyn_rebalancing_comparison.png)
-*Figure 2: Comparison of Rebalancing Flows between SAC-Hard and SAC-Soft ($\lambda=11$). The proposed method (Right) significantly reduces long-distance empty trips.*
+*Figure 4. Comparison of Rebalancing Flows between SAC-Hard and SAC-Soft ($\lambda=11$). The proposed method (Right) significantly reduces long-distance empty trips.*
+
+### 4.4. Analysis of Long-Distance Rebalancing Flows
+
+To quantitatively verify the reduction in inefficient rebalancing, we analyzed the flow volumes for the **Top 5 Longest OD Pairs** in the network, as shown in **Figure 5**.
+
+*   **Longest Route (12 -> 5, 13.2km)**: SAC-Hard dispatched **78 vehicles** on this route. In contrast, SAC-Soft ($\lambda=11$) drastically reduced this to just **4 vehicles**, a near-complete elimination of this inefficient long-haul trip.
+*   **High-Volume Long Routes (9 -> 5, 4 -> 5)**: For routes like 9->5 (16.4km) and 4->5 (13.4km), SAC-Soft maintained flow levels comparable to SAC-Hard (177 vs 188, 177 vs 130). This indicates that the model is **intelligent enough to distinguish meaningful long-distance trips** (which likely have high demand revenue) from wasteful ones. It does not blindly cut all long-distance trips but selectively filters those that do not contribute sufficiently to the global objective.
+
+![Top 5 Longest Flows](file:///c:/Users/Administrator2/Documents/RL4AMOD_origin/figures/top5_long_distance_flow_comparison.png)
+*Figure 5. Rebalancing Flow Count for Top 5 Longest Routes. SAC-Soft ($\lambda=11$) effectively filters out inefficient long-distance flows (e.g., 12->5) while maintaining essential connections.*
 
 ## 5. CONCLUSION
 
